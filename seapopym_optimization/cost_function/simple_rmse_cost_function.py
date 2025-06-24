@@ -33,7 +33,7 @@ class TimeSeriesObservation(AbstractObservation):
     name: str
     observation: xr.DataArray
     observation_type: DayCycle = DayCycle.DAY
-    observation_interval: pd.offsets.BaseOffset = "1D"
+    observation_interval: pd.offsets.BaseOffset | None = "1D"
 
     def __post_init__(self: TimeSeriesObservation) -> None:
         """Check that the observation data is complient with the format of the predicted biomass."""
@@ -109,19 +109,23 @@ def root_mean_square_error(
 ) -> float:
     """Mean square error applied to xr.DataArray."""
     if centered:
-        cost = float(((pred - pred.mean()) - (obs - obs.mean())).mean() ** 2)
+        cost = float(((pred - pred.mean()) - (obs - obs.mean())) ** 2).mean()
     else:
         cost = float(((obs - pred) ** 2).mean())
+
     if root:
         cost = np.sqrt(cost)
+
     if normalized:
         cost /= float(obs.std())
+
     if not np.isfinite(cost):
         msg = (
             "Nan value in cost function. The observation cannot be compared to the prediction. Verify that "
             "coordinates are fitting both in space and time."
         )
         raise ValueError(msg)
+
     return cost
 
 
