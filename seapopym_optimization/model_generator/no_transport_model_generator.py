@@ -31,7 +31,9 @@ class NoTransportModelGenerator(AbstractModelGenerator):
     forcing_parameters: ForcingParameter
         The parameters related to the forcing conditions of the model.
     environment: EnvironmentParameter
-        The parameters related to the environment in which the model operates.
+        The parameters related to the environment in which the model operates. Default is None so each process can
+        run the simulation independently. If the model does not fit in memory, it can be split into smaller
+        sub-models using the environment parameter (i.e. chunks).
     kernel: KernelParameter
         The parameters related to the kernel of the model, which may include spatial or temporal aspects.
 
@@ -45,7 +47,7 @@ class NoTransportModelGenerator(AbstractModelGenerator):
 
     forcing_parameters: ForcingParameter
     model_type: type[NoTransportModel] = NoTransportModel
-    environment: EnvironmentParameter | None = field(default_factory=EnvironmentParameter)
+    environment: EnvironmentParameter | None = None
     kernel: KernelParameter | None = field(default_factory=KernelParameter)
 
     def generate(

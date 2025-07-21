@@ -23,7 +23,7 @@ from seapopym_optimization.model_generator.no_transport_model_generator import N
 class AcidityModelGenerator(NoTransportModelGenerator):
     forcing_parameters: ForcingParameter
     model_type: type[AcidityModel] = AcidityModel
-    environment: EnvironmentParameter | None = field(default_factory=EnvironmentParameter)
+    environment: EnvironmentParameter | None = None  # NOTE(Jules): cf. NoTransportModelGenerator documentation
     kernel: KernelParameter | None = field(default_factory=KernelParameter)
 
     def generate(
