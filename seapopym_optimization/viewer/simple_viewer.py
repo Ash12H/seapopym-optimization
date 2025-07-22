@@ -277,44 +277,6 @@ class SimpleViewer(AbstractViewer):
 
         return figures
 
-    def parameters_standardized_deviation(self: SimpleViewer) -> go.Figure:
-        """Print the standardized deviation of the parameters by generation."""
-        param_range = pd.Series(
-            np.subtract(self.parameters_upper_bound, self.parameters_lower_bounds), index=self.parameters_names
-        )
-        param_std = (
-            self.logbook[LogbookCategory.PARAMETER]
-            .droplevel(level=[LogbookIndex.PREVIOUS_GENERATION.get_index(), LogbookIndex.INDIVIDUAL.get_index()])
-            .reset_index()
-            .groupby(LogbookIndex.GENERATION)
-            .std()
-        )
-        param_standardized_std = param_std / param_range
-
-        fig = make_subplots(
-            rows=1,
-            cols=len(param_standardized_std.index),
-            shared_yaxes=True,
-            subplot_titles=[f"Gen={i}" for i in param_standardized_std.index],
-        )
-
-        for generation in param_standardized_std.index:
-            fig.add_trace(
-                go.Bar(
-                    y=param_standardized_std.columns,
-                    x=param_standardized_std.loc[generation],
-                    orientation="h",
-                ),
-                row=1,
-                col=generation + 1,
-            )
-
-        fig.update_layout(
-            title="Standardized std of parameters by generation",
-            showlegend=False,
-        )
-        return fig
-
     def shannon_entropy(self: SimpleViewer, *, bins: int = 10) -> go.Figure:
         """Proche de 0 = distribution similaires."""
 
@@ -354,8 +316,16 @@ class SimpleViewer(AbstractViewer):
     def time_series(self: SimpleViewer, nbest: int, title: Iterable[str] | None = None) -> list[go.Figure]:
         """Plot the time series of the best simulations for each observation."""
 
+        def _compute_fgroup_in_layer(day_cycle: DayCycle, layer: int) -> list[int]:
+            return [
+                fg_index
+                for fg_index, fg in enumerate(self.functional_group_set.functional_groups)
+                if (fg.night_layer == layer and day_cycle == DayCycle.DAY)
+                or (fg.day_layer == layer and day_cycle == DayCycle.NIGHT)
+            ]
+
         def _plot_observation(observation: xr.DataArray, day_cycle: str, layer: int) -> go.Scatter:
-            y = observation.sel(layer=layer)
+            y = observation.squeeze()
             x = y.cf["T"]
             return go.Scatter(
                 x=x,
@@ -366,18 +336,10 @@ class SimpleViewer(AbstractViewer):
                 marker={"size": 4, "symbol": "x", "color": "black"},
             )
 
-        def _compute_fgroup_in_layer(day_cycle: DayCycle, layer: int) -> list[int]:
-            return [
-                fg_index
-                for fg_index, fg in enumerate(self.functional_group_set.functional_groups)
-                if (fg.night_layer == layer and day_cycle == DayCycle.DAY)
-                or (fg.day_layer == layer and day_cycle == DayCycle.NIGHT)
-            ]
-
         def _plot_best_prediction(
             prediction: xr.DataArray, fgroup: Iterable[int], day_cycle: DayCycle, layer: int
         ) -> go.Scatter:
-            y = prediction.sel(functional_group=fgroup, individual=0).sum("functional_group")
+            y = prediction.sel(functional_group=fgroup, individual=0).sum("functional_group").squeeze()
             x = y.cf["T"]
             return go.Scatter(
                 x=x,
@@ -393,8 +355,8 @@ class SimpleViewer(AbstractViewer):
 
         def _plot_range_best_predictions(
             prediction: xr.DataArray, fgroup: Iterable[int], nbest: int, day_cycle: DayCycle, layer: int
-        ) -> None:
-            y = prediction.sel(functional_group=fgroup).sum("functional_group")  # total biomass in layer
+        ) -> go.Scatter:
+            y = prediction.sel(functional_group=fgroup).sum("functional_group").squeeze()  # total biomass in layer
             x = prediction.time.to_series()
             x_rev = pd.concat([x, x[::-1]])
             y_upper = y.max("individual")
@@ -413,55 +375,27 @@ class SimpleViewer(AbstractViewer):
         best_simulations = self.simulation_manager.run_first(nbest)
         best_simulations = best_simulations.pint.quantify().pint.to("milligram / meter ** 2").pint.dequantify()
 
-        nb_columns = 2  # day, night
-        layer_pos = np.ravel([(fg.day_layer, fg.night_layer) for fg in self.functional_group_set.functional_groups])
-        upper_layer_pos = layer_pos.min()
-        lower_layer_pos = layer_pos.max()
-        nb_rows = int(lower_layer_pos - upper_layer_pos + 1)
+        if title is None:
+            title = [f"Observation {i + 1}" for i in range(len(self.observations))]
 
         all_figures = []
-        for fig_nb, observation in enumerate(self.observations):
-            figure = make_subplots(
-                rows=nb_rows,
-                cols=nb_columns,
-                x_title="Time",
-                y_title="Biomass (mg/m2)",
-                row_titles=[f"Layer {layer}" for layer in np.sort(np.unique(layer_pos))],
-                subplot_titles=["Day", "Night"],
-                horizontal_spacing=0.1,
-                vertical_spacing=0.1,
+        for obs, obs_title in zip(self.observations, title, strict=True):
+            layer = obs.observation.cf["Z"].data[0]
+            obs_type = obs.observation_type
+            fgroup = _compute_fgroup_in_layer(obs_type, layer)
+
+            obs_data = obs.observation.pint.quantify().pint.to("milligram / meter ** 2").pint.dequantify()
+            best_simulations_where_obs = best_simulations.cf.sel(
+                X=obs_data.cf["X"], Y=obs_data.cf["Y"], T=obs_data.cf["T"]
             )
-            obs_data: xr.DataArray = (
-                observation.observation.pint.quantify().pint.to("milligram / meter ** 2").pint.dequantify()
-            )
-            best_simulations_sel = best_simulations.cf.sel(X=obs_data.cf["X"], Y=obs_data.cf["Y"]).cf.mean(["X", "Y"])
-            obs_data = obs_data.cf.mean(["X", "Y"])
-            column = 1 if observation.observation_type == DayCycle.DAY else 2
 
-            for layer in np.unique(layer_pos):
-                row = int(layer - upper_layer_pos) + 1  # 1-indexed
-                fgroup = _compute_fgroup_in_layer(observation.observation_type, layer)
-                if len(fgroup) > 0:
-                    figure.add_trace(
-                        _plot_best_prediction(best_simulations_sel, fgroup, observation.observation_type, layer),
-                        row=row,
-                        col=column,
-                    )
-                    figure.add_trace(
-                        _plot_range_best_predictions(
-                            best_simulations_sel, fgroup, nbest, observation.observation_type, layer
-                        ),
-                        row=row,
-                        col=column,
-                    )
+            fig = go.Figure()
+            fig.add_trace(_plot_observation(obs_data, obs_type, layer))
+            fig.add_trace(_plot_best_prediction(best_simulations_where_obs, fgroup, obs_type, layer))
+            fig.add_trace(_plot_range_best_predictions(best_simulations_where_obs, fgroup, nbest, obs_type, layer))
+            fig.update_layout(title=obs_title, xaxis_title="Time", yaxis_title="Biomass (mg/m²)")
 
-                if layer in obs_data.layer and obs_data.sel(layer=layer).sum() > 0:
-                    figure.add_trace(
-                        _plot_observation(obs_data, observation.observation_type, layer), row=row, col=column
-                    )
-            figure.update_layout(title=f"{title[fig_nb]}" if title is not None else observation.name)
-            all_figures.append(figure)
-
+            all_figures.append(fig)
         return all_figures
 
     # ---------------------------------------------------------------------------------------------------------------- #

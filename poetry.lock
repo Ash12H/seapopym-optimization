@@ -2167,14 +2167,14 @@ test = ["Cython", "array-api-strict (>=2.0,<2.1.1)", "asv", "gmpy2", "hypothesis
 
 [[package]]
 name = "seapopym"
-version = "0.0.2.1"
+version = "0.0.2.4.2"
 description = "Seapodym is a Python package that provides models to simulate the dynamics of low and mid trophic level marine ecosystems."
 optional = false
 python-versions = ">=3.12"
 groups = ["main"]
 files = [
-    {file = "seapopym-0.0.2.1-py3-none-any.whl", hash = "sha256:a2a38f70be21d56bd6ba3ed25aea821163877482a0f4664c6815bf637d704272"},
-    {file = "seapopym-0.0.2.1.tar.gz", hash = "sha256:c503ec2eb5157e7cd14fd87b19c0d608aa7df1e17d5a1a19de5e8e947c12d686"},
+    {file = "seapopym-0.0.2.4.2-py3-none-any.whl", hash = "sha256:a3e1b5a0875131121b533e8ea1a6d94b4d621365d02a1a12bedf8243a9a93e71"},
+    {file = "seapopym-0.0.2.4.2.tar.gz", hash = "sha256:a288fcf6d44c0976d1f984f8edd1cf295da7d27dc8d3366b3e3d897355af58b5"},
 ]
 
 [package.dependencies]
