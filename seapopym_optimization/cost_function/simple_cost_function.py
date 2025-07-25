@@ -151,7 +151,7 @@ class SimpleCostFunction(AbstractCostFunction):
 
     observations: Sequence[TimeSeriesObservation]  # TODO(Jules): Should accept spatial observations?
     evaluation_function: callable[[xr.DataArray, xr.DataArray], xr.DataArray] = field(
-        default_factory=partial(root_mean_square_error, root=True, centered=False, normalized=False)
+        default=partial(root_mean_square_error, root=True, centered=False, normalized=False)
     )
     resample_prediction: bool = True
 
