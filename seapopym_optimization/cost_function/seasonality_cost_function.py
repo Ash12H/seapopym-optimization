@@ -16,7 +16,7 @@ from seapopym.standard.labels import ConfigurationLabels, CoordinatesLabels, For
 from statsmodels.tsa import seasonal
 
 from seapopym_optimization.cost_function.base_observation import DayCycle
-from seapopym_optimization.cost_function.simple_rmse_cost_function import (
+from seapopym_optimization.cost_function.simple_cost_function import (
     SimpleRootMeanSquareErrorCostFunction,
     TimeSeriesObservation,
     aggregate_biomass_by_layer,

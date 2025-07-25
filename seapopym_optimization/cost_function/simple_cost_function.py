@@ -150,7 +150,7 @@ class SimpleCostFunction(AbstractCostFunction):
     """
 
     observations: Sequence[TimeSeriesObservation]  # TODO(Jules): Should accept spatial observations?
-    evaluation_function: callable = field(
+    evaluation_function: callable[[xr.DataArray, xr.DataArray], xr.DataArray] = field(
         default_factory=partial(root_mean_square_error, root=True, centered=False, normalized=False)
     )
     resample_prediction: bool = True
@@ -178,14 +178,15 @@ class SimpleCostFunction(AbstractCostFunction):
             layer_coordinates=model.state.cf[CoordinatesLabels.Z].data,
         )
 
-        def evaluate_observation(observation: xr.DataArray, prediction: xr.DataArray) -> xr.DataArray:
+        def evaluate_observation(prediction: xr.DataArray, observation: xr.DataArray) -> xr.DataArray:
             if self.resample_prediction:
                 prediction = observation.resample_data_by_observation_interval(prediction)
-            return self.evaluation_function(pred=prediction, obs=observation)
+            return self.evaluation_function(prediction, observation)
 
         return tuple(
             evaluate_observation(
-                biomass_day if obs.observation_type == DayCycle.DAY else biomass_night, obs.observation
+                prediction=(biomass_day if obs.observation_type == DayCycle.DAY else biomass_night),
+                observation=obs.observation,
             )
             for obs in self.observations
         )

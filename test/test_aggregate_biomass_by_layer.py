@@ -1,7 +1,7 @@
 import xarray as xr
 from seapopym.standard.labels import CoordinatesLabels
 
-from seapopym_optimization.cost_function.simple_rmse_cost_function import aggregate_biomass_by_layer
+from seapopym_optimization.cost_function.simple_cost_function import aggregate_biomass_by_layer
 
 
 def test_aggregate_biomass_by_layer():
