@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from functools import partial
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -130,7 +131,7 @@ def root_mean_square_error(
 
 
 @dataclass(kw_only=True)
-class SimpleRootMeanSquareErrorCostFunction(AbstractCostFunction):
+class SimpleCostFunction(AbstractCostFunction):
     """
     Generator of the cost function for the 'SeapoPym No Transport' model.
 
@@ -142,15 +143,19 @@ class SimpleRootMeanSquareErrorCostFunction(AbstractCostFunction):
         Forcing parameters.
     observations : Sequence[Observation]
         Observations.
+    evaluation_function : callable[xr.DataArray, xr.DataArray] -> xr.DataArray
+        The evaluation function to use for the cost function. Defaults to root mean square error without normalization
+        nor centering. Be careful, the 1st argument is the prediction and the 2nd is the observation.
 
     """
 
-    observations: Sequence[TimeSeriesObservation]  # TODO(Jules): Should accept spatial observations
-    root_mse: bool = True
-    centered_mse: bool = False
-    normalized_mse: bool = False
+    observations: Sequence[TimeSeriesObservation]  # TODO(Jules): Should accept spatial observations?
+    evaluation_function: callable = field(
+        default_factory=partial(root_mean_square_error, root=True, centered=False, normalized=False)
+    )
+    resample_prediction: bool = True
 
-    def _cost_function(self: SimpleRootMeanSquareErrorCostFunction, args: np.ndarray) -> tuple:
+    def _cost_function(self: SimpleCostFunction, args: np.ndarray) -> tuple:
         model = self.model_generator.generate(
             functional_group_names=self.functional_groups.functional_groups_name(),
             functional_group_parameters=self.functional_groups.generate(args),
@@ -173,15 +178,14 @@ class SimpleRootMeanSquareErrorCostFunction(AbstractCostFunction):
             layer_coordinates=model.state.cf[CoordinatesLabels.Z].data,
         )
 
+        def evaluate_observation(observation: xr.DataArray, prediction: xr.DataArray) -> xr.DataArray:
+            if self.resample_prediction:
+                prediction = observation.resample_data_by_observation_interval(prediction)
+            return self.evaluation_function(pred=prediction, obs=observation)
+
         return tuple(
-            root_mean_square_error(
-                pred=obs.resample_data_by_observation_interval(
-                    biomass_day if obs.observation_type == DayCycle.DAY else biomass_night
-                ),
-                obs=obs.observation,
-                root=self.root_mse,
-                centered=self.centered_mse,
-                normalized=self.normalized_mse,
+            evaluate_observation(
+                biomass_day if obs.observation_type == DayCycle.DAY else biomass_night, obs.observation
             )
             for obs in self.observations
         )
