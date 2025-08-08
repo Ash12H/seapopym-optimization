@@ -178,15 +178,15 @@ class SimpleCostFunction(AbstractCostFunction):
             layer_coordinates=model.state.cf[CoordinatesLabels.Z].data,
         )
 
-        def evaluate_observation(prediction: xr.DataArray, observation: xr.DataArray) -> xr.DataArray:
+        def evaluate_observation(prediction: xr.DataArray, observation: TimeSeriesObservation) -> xr.DataArray:
             if self.resample_prediction:
                 prediction = observation.resample_data_by_observation_interval(prediction)
-            return self.evaluation_function(prediction, observation)
+            return self.evaluation_function(prediction, observation.observation)
 
         return tuple(
             evaluate_observation(
                 prediction=(biomass_day if obs.observation_type == DayCycle.DAY else biomass_night),
-                observation=obs.observation,
+                observation=obs,
             )
             for obs in self.observations
         )

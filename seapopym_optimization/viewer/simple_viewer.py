@@ -74,6 +74,19 @@ class SimulationManager:
 
         return xr.concat(self._cache[:n], dim="individual")
 
+    def run_individual(self, generation: int, individual: int) -> xr.DataArray:
+        """Run the simulation for a specific generation and individual."""
+        data = self.param_sets.reorder_levels(
+            ["Is_From_Previous_Generation", "Generation", "Individual"], axis=0
+        ).droplevel(0)
+        args = data.loc[(generation, individual)][LogbookCategory.PARAMETER].to_numpy()
+        model = self.model_generator.generate(
+            functional_group_names=self.functional_groups.functional_groups_name(),
+            functional_group_parameters=self.functional_groups.generate(args),
+        )
+        model.run()
+        return model.state[ForcingLabels.biomass]
+
 
 @dataclass
 class SimpleViewer(AbstractViewer):
