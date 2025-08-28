@@ -399,7 +399,8 @@ class SimpleViewer(AbstractViewer):
 
             obs_data = obs.observation.pint.quantify().pint.to("milligram / meter ** 2").pint.dequantify()
             best_simulations_where_obs = best_simulations.cf.sel(
-                X=obs_data.cf["X"], Y=obs_data.cf["Y"], T=obs_data.cf["T"]
+                X=obs_data.cf["X"],
+                Y=obs_data.cf["Y"],  # , T=obs_data.cf["T"] # NOTE(Jules) : We want to see the whole simulation
             )
 
             fig = go.Figure()
