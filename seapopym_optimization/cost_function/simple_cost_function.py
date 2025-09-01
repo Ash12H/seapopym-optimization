@@ -110,7 +110,7 @@ def root_mean_square_error(
 ) -> float:
     """Mean square error applied to xr.DataArray."""
     if centered:
-        cost = float(((pred - pred.mean()) - (obs - obs.mean())) ** 2).mean()
+        cost = float((((pred - pred.mean()) - (obs - obs.mean())) ** 2).mean())
     else:
         cost = float(((obs - pred) ** 2).mean())
 
