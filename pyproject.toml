@@ -1,48 +1,45 @@
-[project]
+[tool.poetry]
 name = "seapopym_optimization"
+version = "0.0.1.7"
 description = "A Python package for optimizing SeapoPym models using DEAP and Dask"
-dynamic = ["version"]
-license = { text = "MIT" }
+license = "MIT"
 readme = "README.md"
-requires-python = ">=3.12"
-authors = [
-    { name = "Jules Lehodey", email = "lehodey.jules+seapopym@gmail.com" },
-]
+authors = ["Jules Lehodey <lehodey.jules+seapopym@gmail.com>"]
 keywords = ["oceanography", "marine ecosystems", "marine biology"]
 classifiers = ["Topic :: Scientific/Engineering :: Oceanography"]
 
-dependencies = [
-    "seapopym",
-    "deap",
-    "dask",
-    "distributed",
-    "pytest",
-    "pandera",
-    "plotly",
-    "scipy",
-    "scikit-learn",
-]
+[tool.poetry.dependencies]
+python = "<3.13,>=3.12"
+seapopym = "^0.0.2.4.7"
+deap = "^1.4.3"
+dask = "^2025.9.0"
+distributed = "^2025.9.0"
+pandera = "^0.26.1"
+plotly = "^6.3.0"
+scipy = "^1.16.2"
+scikit-learn = "^1.7.2"
+salib = "^1.5.1"
 
 [tool.poetry.group.dev]
 optional = true
 
 [tool.poetry.group.dev.dependencies]
-ruff = "*"
+ruff = "^0.13.0"
+pytest = "^8.4.2"
 
 [tool.poetry.group.doc]
 optional = true
 
 [tool.poetry.group.doc.dependencies]
-sphinx = "*"
-sphinx-rtd-theme = "*"
-nbsphinx = "*"
+sphinx = "<8.2"
+sphinx-rtd-theme = "^3.0.2"
+nbsphinx = "^0.9.7"
+jupyter = "^1.1.1"
+matplotlib = "^3.10.6"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
-
-[tool.poetry]
-version = "0.0.1.6"
 
 [tool.poetry.requires-plugins]
 poetry-plugin-export = "^1.9.0"
