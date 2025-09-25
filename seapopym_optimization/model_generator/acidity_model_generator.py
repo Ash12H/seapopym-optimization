@@ -9,7 +9,6 @@ from seapopym.configuration.acidity import (
     FunctionalTypeParameter,
 )
 from seapopym.configuration.no_transport import (
-    EnvironmentParameter,
     FunctionalGroupUnit,
     KernelParameter,
     MigratoryTypeParameter,
@@ -23,7 +22,6 @@ from seapopym_optimization.model_generator.no_transport_model_generator import N
 class AcidityModelGenerator(NoTransportModelGenerator):
     forcing_parameters: ForcingParameter
     model_type: type[AcidityModel] = AcidityModel
-    environment: EnvironmentParameter | None = None  # NOTE(Jules): cf. NoTransportModelGenerator documentation
     kernel: KernelParameter | None = field(default_factory=KernelParameter)
 
     def generate(
@@ -75,7 +73,6 @@ class AcidityModelGenerator(NoTransportModelGenerator):
         model_configuration = AcidityConfiguration(
             forcing=self.forcing_parameters,
             functional_group=FunctionalGroupParameter(functional_group=functional_group_set),
-            environment=self.environment,
             kernel=self.kernel,
         )
 

@@ -3,7 +3,6 @@
 from dataclasses import dataclass, field
 
 from seapopym.configuration.no_transport import (
-    EnvironmentParameter,
     ForcingParameter,
     FunctionalGroupParameter,
     FunctionalGroupUnit,
@@ -30,10 +29,6 @@ class NoTransportModelGenerator(AbstractModelGenerator):
         The type of model to generate, which is NoTransportModel in this case.
     forcing_parameters: ForcingParameter
         The parameters related to the forcing conditions of the model.
-    environment: EnvironmentParameter
-        The parameters related to the environment in which the model operates. Default is None so each process can
-        run the simulation independently. If the model does not fit in memory, it can be split into smaller
-        sub-models using the environment parameter (i.e. chunks).
     kernel: KernelParameter
         The parameters related to the kernel of the model, which may include spatial or temporal aspects.
 
@@ -47,7 +42,6 @@ class NoTransportModelGenerator(AbstractModelGenerator):
 
     forcing_parameters: ForcingParameter
     model_type: type[NoTransportModel] = NoTransportModel
-    environment: EnvironmentParameter | None = None
     kernel: KernelParameter | None = field(default_factory=KernelParameter)
 
     def generate(
@@ -97,7 +91,6 @@ class NoTransportModelGenerator(AbstractModelGenerator):
         model_configuration = NoTransportConfiguration(
             forcing=self.forcing_parameters,
             functional_group=FunctionalGroupParameter(functional_group=functional_group_set),
-            environment=self.environment,
             kernel=self.kernel,
         )
 

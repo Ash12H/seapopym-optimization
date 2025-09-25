@@ -7,12 +7,11 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from seapopym.configuration.abstract_configuration import (
-        AbstractEnvironmentParameter,
-        AbstractForcingParameter,
-        AbstractKernelParameter,
+    from seapopym.standard.protocols import (
+        ForcingParameterProtocol,
+        KernelParameterProtocol,
+        ModelProtocol,
     )
-    from seapopym.model.base_model import BaseModel
 
 
 @dataclass(kw_only=True)
@@ -22,17 +21,16 @@ class AbstractModelGenerator(ABC):
     This class defines the interface for generating models with specific parameters.
     """
 
-    model_type: type[BaseModel]
-    forcing_parameters: AbstractForcingParameter
-    environment: AbstractEnvironmentParameter
-    kernel: AbstractKernelParameter
+    model_type: type[ModelProtocol]
+    forcing_parameters: ForcingParameterProtocol
+    kernel: KernelParameterProtocol
 
     @abstractmethod
     def generate(
         self: AbstractModelGenerator,
         functional_group_parameters: list[dict[str, float]],
         functional_group_names: list[str] | None = None,
-    ) -> BaseModel:
+    ) -> ModelProtocol:
         """
         Generate a model of type `self.model_type` with the given parameters.
         This method should be implemented by the subclasses to create the specific model.

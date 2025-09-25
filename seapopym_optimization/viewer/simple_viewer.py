@@ -370,7 +370,7 @@ class SimpleViewer(AbstractViewer):
             prediction: xr.DataArray, fgroup: Iterable[int], nbest: int, day_cycle: DayCycle, layer: int
         ) -> go.Scatter:
             y = prediction.sel(functional_group=fgroup).sum("functional_group").squeeze()  # total biomass in layer
-            x = prediction.time.to_series()
+            x = prediction.cf["T"].to_series()
             x_rev = pd.concat([x, x[::-1]])
             y_upper = y.max("individual")
             y_lower = y.min("individual")[::-1]

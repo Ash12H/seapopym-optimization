@@ -10,7 +10,7 @@ classifiers = ["Topic :: Scientific/Engineering :: Oceanography"]
 
 [tool.poetry.dependencies]
 python = "<3.13,>=3.12"
-seapopym = "^0.0.2.4.7"
+seapopym = "^0.0.2.5.1"
 deap = "^1.4.3"
 dask = "^2025.9.0"
 distributed = "^2025.9.0"
