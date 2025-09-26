@@ -10,8 +10,8 @@ from typing import TYPE_CHECKING, Literal
 import numpy as np
 from deap import algorithms, base, tools
 
-from seapopym_optimization.genetic_algorithm.base_genetic_algorithm import individual_creator
-from seapopym_optimization.genetic_algorithm.simple_logbook import Logbook, LogbookCategory, LogbookIndex
+from seapopym_optimization.algorithm.genetic_algorithm.base_genetic_algorithm import individual_creator
+from seapopym_optimization.algorithm.genetic_algorithm.simple_logbook import Logbook, LogbookCategory, LogbookIndex
 from seapopym_optimization.viewer.simple_viewer import SimpleViewer
 
 if TYPE_CHECKING:

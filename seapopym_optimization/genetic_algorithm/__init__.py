@@ -1,1 +1,0 @@
-from .simple_genetic_algorithm import SimpleGeneticAlgorithm, SimpleGeneticAlgorithmParameters
