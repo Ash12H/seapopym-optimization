@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from deap import base
@@ -11,9 +9,6 @@ from deap import base
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from numbers import Number
-
-    from seapopym_optimization.constraint.base_constraint import AbstractConstraint
-    from seapopym_optimization.cost_function.base_cost_function import AbstractCostFunction
 
 
 def individual_creator(cost_function_weight: tuple[Number]) -> type:
@@ -39,23 +34,5 @@ def individual_creator(cost_function_weight: tuple[Number]) -> type:
     return Individual
 
 
-@dataclass
-class AbstractGeneticAlgorithmParameters(ABC):
-    """Base class for parameters of a genetic algorithm."""
-
-    @abstractmethod
-    def generate_toolbox(self: AbstractGeneticAlgorithmParameters) -> base.Toolbox:
-        """Return a DEAP toolbox configured with the necessary genetic algorithm functions."""
-
-
-@dataclass
-class AbstractGeneticAlgorithm(ABC):
-    """Base class for a genetic algorithm implementation."""
-
-    parameter: AbstractGeneticAlgorithmParameters
-    cost_function: AbstractCostFunction
-    constraint: Sequence[AbstractConstraint] = field(default_factory=list)
-
-    @abstractmethod
-    def optimize() -> AbstractViewer:
-        """Run the optimization algorithm and return a structure containing the results."""
+# Note: ABC classes removed in favor of Protocol-based approach.
+# See seapopym_optimization.protocols for OptimizationParametersProtocol and OptimizationAlgorithmProtocol.
