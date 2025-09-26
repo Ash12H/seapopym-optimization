@@ -228,7 +228,7 @@ class SimpleGeneticAlgorithm:
 
         return last_computed_generation + 1, population
 
-    def optimize(self: SimpleGeneticAlgorithm) -> SimpleViewer:
+    def optimize(self: SimpleGeneticAlgorithm) -> Logbook:
         """This is the main function. Use it to optimize your model."""
         generation_start, population = self._initialization()
 
@@ -244,10 +244,4 @@ class SimpleGeneticAlgorithm:
             self.update_logbook(logbook)
             population[:] = offspring
 
-        return SimpleViewer(
-            logbook=self.logbook.copy(),
-            functional_group_set=self.cost_function.functional_groups,
-            model_generator=self.cost_function.model_generator,
-            observations=self.cost_function.observations,
-            cost_function_weight=self.meta_parameter.cost_function_weight,
-        )
+        return self.logbook.copy()

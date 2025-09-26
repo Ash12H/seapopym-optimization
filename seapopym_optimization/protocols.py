@@ -10,9 +10,9 @@ if TYPE_CHECKING:
     from deap import base, tools
     from seapopym.standard.protocols import ModelProtocol
 
+    from seapopym_optimization.algorithm.genetic_algorithm.simple_logbook import Logbook
     from seapopym_optimization.cost_function.base_cost_function import AbstractCostFunction
     from seapopym_optimization.functional_group.no_transport_functional_groups import Parameter
-    from seapopym_optimization.viewer.base_viewer import AbstractViewer
 
 
 @runtime_checkable
@@ -31,8 +31,8 @@ class OptimizationAlgorithmProtocol(Protocol):
     cost_function: AbstractCostFunction
     constraint: Sequence[ConstraintProtocol] | None
 
-    def optimize(self) -> AbstractViewer:
-        """Run the optimization algorithm and return a structure containing the results."""
+    def optimize(self) -> Logbook:
+        """Run the optimization algorithm and return the optimization results as a Logbook."""
         ...
 
 

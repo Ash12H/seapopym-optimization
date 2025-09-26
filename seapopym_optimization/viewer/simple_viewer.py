@@ -100,6 +100,24 @@ class SimpleViewer(AbstractViewer):
 
     simulation_manager: SimulationManager = field(init=False, default=None, repr=False)
 
+    @classmethod
+    def from_optimization_results(
+        cls,
+        logbook: Logbook,
+        functional_group_set: FunctionalGroupSet,
+        model_generator: ModelGeneratorProtocol,
+        observations: Sequence[TimeSeriesObservation],
+        cost_function_weight: tuple[Number],
+    ) -> SimpleViewer:
+        """Create a SimpleViewer from optimization results."""
+        return cls(
+            logbook=logbook,
+            functional_group_set=functional_group_set,
+            model_generator=model_generator,
+            observations=observations,
+            cost_function_weight=cost_function_weight,
+        )
+
     def __post_init__(self: SimpleViewer) -> None:
         """Initialize the simulation manager."""
         self.simulation_manager = SimulationManager(
