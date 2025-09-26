@@ -7,10 +7,9 @@ from typing import TYPE_CHECKING, Protocol, runtime_checkable
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
-    from deap import base
+    from deap import base, tools
     from seapopym.standard.protocols import ModelProtocol
 
-    from seapopym_optimization.constraint.base_constraint import AbstractConstraint
     from seapopym_optimization.cost_function.base_cost_function import AbstractCostFunction
     from seapopym_optimization.functional_group.no_transport_functional_groups import Parameter
     from seapopym_optimization.viewer.base_viewer import AbstractViewer
@@ -30,7 +29,7 @@ class OptimizationAlgorithmProtocol(Protocol):
     """Protocol for an optimization algorithm implementation."""
 
     cost_function: AbstractCostFunction
-    constraint: Sequence[AbstractConstraint] | None
+    constraint: Sequence[ConstraintProtocol] | None
 
     def optimize(self) -> AbstractViewer:
         """Run the optimization algorithm and return a structure containing the results."""
@@ -56,4 +55,13 @@ class CostFunctionProtocol(Protocol):
 
     def generate(self) -> Callable[[Sequence[float]], tuple]:
         """Generate the cost function used for optimization."""
+        ...
+
+
+@runtime_checkable
+class ConstraintProtocol(Protocol):
+    """Protocol for constraints used in optimization algorithms."""
+
+    def generate(self, parameter_names: Sequence[str]) -> tools.DeltaPenalty:
+        """Generate the DEAP DeltaPenalty constraint for the optimization algorithm."""
         ...

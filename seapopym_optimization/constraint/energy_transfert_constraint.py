@@ -7,11 +7,12 @@ from dataclasses import dataclass
 from functools import partial
 from typing import Callable
 
-from seapopym_optimization.constraint.base_constraint import AbstractConstraint
+import numpy as np
+from deap import tools
 
 
 @dataclass
-class EnergyCoefficientConstraint(AbstractConstraint):
+class EnergyCoefficientConstraint:
     """
     Constraint to ensure that the sum of all energy transfert coefficients is within a specified range.
     This constraint is used to apply a penalty if the sum of the coefficients is greater than `max_energy_coef_value`
@@ -27,10 +28,11 @@ class EnergyCoefficientConstraint(AbstractConstraint):
             The maximum allowed value for the sum of the energy transfert coefficients.
     """
 
+    parameters_name: Sequence[str]
     min_energy_coef_value: float
     max_energy_coef_value: float
 
-    def _feasible(self: EnergyCoefficientConstraint, selected_index: list[int]) -> Callable[[Sequence[float]], bool]:
+    def _feasible(self, selected_index: list[int]) -> Callable[[Sequence[float]], bool]:
         """
         The penalty when the sum of all energy transfert coefficients are greater than `max_energy_coef_value` or less
         than `min_energy_coef_value`.
@@ -41,3 +43,19 @@ class EnergyCoefficientConstraint(AbstractConstraint):
             return min_coef <= total_coef <= max_coef
 
         return partial(feasible, min_coef=self.min_energy_coef_value, max_coef=self.max_energy_coef_value)
+
+    def generate(self, parameter_names: list[str]) -> tools.DeltaPenalty:
+        """
+        Generate the DeltaPenalty object used by the DEAP library to apply the penalty on individuals that do not
+        satisfy the constraint.
+        """
+
+        def generate_index(ordered_names: list[str]) -> list[int]:
+            """
+            List the index of the `parameters_name` in the `ordered_names` sequence. This should be used by the feasible
+            function to retrive the position of the selected parameters.
+            """
+            return [ordered_names.index(param) for param in self.parameters_name]
+
+        feasible = self._feasible(selected_index=generate_index(parameter_names))
+        return tools.DeltaPenalty(feasibility=feasible, delta=np.inf)

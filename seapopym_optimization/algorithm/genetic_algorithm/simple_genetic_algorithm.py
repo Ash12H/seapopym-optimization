@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from dask.distributed import Client
     from pandas._typing import FilePath, WriteBuffer
 
-    from seapopym_optimization.constraint.energy_transfert_constraint import AbstractConstraint
+    from seapopym_optimization.protocols import ConstraintProtocol
     from seapopym_optimization.functional_group.no_transport_functional_groups import Parameter
     from seapopym_optimization.protocols import CostFunctionProtocol
     from seapopym_optimization.viewer.simple_viewer import SimpleViewer
@@ -112,7 +112,7 @@ class SimpleGeneticAlgorithm:
         The cost function to optimize.
     client: Client | None
         The Dask client to use for parallel computing. If None, the algorithm will run in serial.
-    constraint: Sequence[AbstractConstraint] | None
+    constraint: Sequence[ConstraintProtocol] | None
         The constraints to apply to the individuals. If None, no constraints are applied.
     save: PathLike | None
         The path to save the logbook (in parquet format). If None, the logbook is not saved.
@@ -122,7 +122,7 @@ class SimpleGeneticAlgorithm:
     meta_parameter: SimpleGeneticAlgorithmParameters
     cost_function: CostFunctionProtocol
     client: Client | None = None
-    constraint: Sequence[AbstractConstraint] | None = None
+    constraint: Sequence[ConstraintProtocol] | None = None
 
     save: FilePath | WriteBuffer[bytes] | None = None
     logbook: Logbook | None = field(default=None, repr=False)
