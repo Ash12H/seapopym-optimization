@@ -9,6 +9,7 @@ import xarray as xr
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+    from seapopym_optimization.functional_group.base_functional_group import FunctionalGroupSet
 
 
 class XarrayLogbook:
@@ -207,11 +208,12 @@ class XarrayLogbook:
         for ind_idx, fitness_tuple in zip(individual_indices, fitness_values, strict=True):
             # Update multi-objective fitness
             for obj_idx, fitness_val in enumerate(fitness_tuple):
-                self.dataset['fitness'][generation, ind_idx, obj_idx] = fitness_val
+                obj_name = self.objective_names[obj_idx]
+                self.dataset['fitness'].loc[{'generation': generation, 'individual': ind_idx, 'objective': obj_name}] = fitness_val
 
             # Update weighted fitness (simple sum for now)
             weighted_val = sum(fitness_tuple) if not any(np.isnan(fitness_tuple)) else np.nan
-            self.dataset['weighted_fitness'][generation, ind_idx] = weighted_val
+            self.dataset['weighted_fitness'].loc[{'generation': generation, 'individual': ind_idx}] = weighted_val
 
     @property
     def parameter_names(self) -> list[str]:
@@ -340,6 +342,50 @@ class XarrayLogbook:
 
         return cls(dataset)
 
+    @classmethod
+    def from_sobol_samples(
+        cls,
+        functional_group_parameters: Sequence | FunctionalGroupSet,
+        sample_number: int,
+        fitness_names: list[str],
+        generation: int = 0,
+    ) -> XarrayLogbook:
+        """
+        Create XarrayLogbook from Sobol samples (equivalent to generate_logbook_with_sobol_sampling).
+
+        Parameters
+        ----------
+        functional_group_parameters : Sequence[AbstractFunctionalGroup] | FunctionalGroupSet
+            Functional group parameters for sampling
+        sample_number : int
+            N parameter used by the SALib sample_sobol method. The number of generated samples
+            is equal to N * (D + 2), where D is the number of parameters.
+        fitness_names : list[str]
+            Names of fitness objectives
+        generation : int, default 0
+            Generation number for the samples
+
+        Returns
+        -------
+        XarrayLogbook
+            New logbook instance with Sobol samples
+        """
+        from seapopym_optimization.functional_group.sobol_initialization import initialize_with_sobol_sampling
+
+        samples = initialize_with_sobol_sampling(functional_group_parameters, sample_number)
+
+        individual_data = [row.tolist() for _, row in samples.iterrows()]
+        parameter_names = samples.columns.tolist()
+        is_from_previous = [False] * len(samples)
+
+        return cls.from_individual(
+            generation=generation,
+            is_from_previous_generation=is_from_previous,
+            individual=individual_data,
+            parameter_names=parameter_names,
+            fitness_names=fitness_names,
+        )
+
     def save_netcdf(self, filepath: str) -> None:
         """Save logbook to NetCDF file."""
         # Convert complex attributes to strings for NetCDF compatibility
@@ -373,3 +419,34 @@ class XarrayLogbook:
             f"  Total individuals: {total_individuals}\n"
             f"  Dimensions: {dict(self.dataset.dims)}"
         )
+
+
+def generate_xarray_logbook_with_sobol_sampling(
+    functional_group_parameters: Sequence | FunctionalGroupSet,
+    sample_number: int,
+    fitness_names: Sequence[str],
+) -> XarrayLogbook:
+    """
+    Generate an XarrayLogbook with Sobol sampling (equivalent to generate_logbook_with_sobol_sampling).
+
+    Parameters
+    ----------
+    functional_group_parameters : Sequence[AbstractFunctionalGroup] | FunctionalGroupSet
+        A sequence of functional groups to be included in the logbook.
+    sample_number : int
+        N parameter used by the SALib `sample_sobol` method. The number of generated samples
+        is equal to `N * (D + 2)`, where D is the number of parameters.
+    fitness_names : list[str]
+        A list of fitness names to be included in the logbook.
+
+    Returns
+    -------
+    XarrayLogbook
+        An XarrayLogbook containing the Sobol samples.
+
+    """
+    return XarrayLogbook.from_sobol_samples(
+        functional_group_parameters=functional_group_parameters,
+        sample_number=sample_number,
+        fitness_names=fitness_names,
+    )

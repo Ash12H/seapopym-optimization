@@ -12,6 +12,7 @@ from deap import algorithms, base, tools
 
 from seapopym_optimization.algorithm.genetic_algorithm.base_genetic_algorithm import individual_creator
 from seapopym_optimization.algorithm.genetic_algorithm.simple_logbook import Logbook, LogbookCategory, LogbookIndex
+from seapopym_optimization.algorithm.genetic_algorithm.xarray_logbook import XarrayLogbook
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -21,10 +22,8 @@ if TYPE_CHECKING:
     from dask.distributed import Client
     from pandas._typing import FilePath, WriteBuffer
 
-    from seapopym_optimization.protocols import ConstraintProtocol
     from seapopym_optimization.functional_group.no_transport_functional_groups import Parameter
-    from seapopym_optimization.protocols import CostFunctionProtocol
-    from seapopym_optimization.viewer.simple_viewer import SimpleViewer
+    from seapopym_optimization.protocols import ConstraintProtocol, CostFunctionProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +129,7 @@ class SimpleGeneticAlgorithm:
 
     def __post_init__(self: SimpleGeneticAlgorithm) -> None:
         """Check parameters."""
-        if self.logbook is not None and not isinstance(self.logbook, Logbook):
+        if self.logbook is not None and not isinstance(self.logbook, (Logbook, XarrayLogbook)):
             self.logbook = Logbook(self.logbook)
 
         if self.save is not None:
@@ -155,7 +154,7 @@ class SimpleGeneticAlgorithm:
 
     def update_logbook(self: SimpleGeneticAlgorithm, logbook: Logbook) -> None:
         """Update the logbook with the new data and save to disk if a path is provided."""
-        if not isinstance(logbook, Logbook):
+        if not isinstance(logbook, (Logbook, XarrayLogbook)):
             logbook = Logbook(logbook)
 
         self.logbook = logbook if self.logbook is None else self.logbook.append_new_generation(logbook)
