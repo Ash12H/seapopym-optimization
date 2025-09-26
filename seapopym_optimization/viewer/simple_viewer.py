@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import StrEnum
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -15,7 +16,7 @@ from scipy.stats import entropy
 from seapopym.standard.labels import ForcingLabels
 from sklearn.preprocessing import QuantileTransformer
 
-from seapopym_optimization.algorithm.genetic_algorithm.simple_logbook import Logbook, LogbookCategory, LogbookIndex
+from seapopym_optimization.algorithm.genetic_algorithm.logbook import OptimizationLog
 from seapopym_optimization.cost_function.simple_cost_function import DayCycle, TimeSeriesObservation
 from seapopym_optimization.viewer.base_viewer import AbstractViewer
 
@@ -29,7 +30,21 @@ if TYPE_CHECKING:
     from seapopym_optimization.protocols import ModelGeneratorProtocol
 
 
-def compute_stats(logbook: Logbook) -> pd.DataFrame:
+class LogbookCategory(StrEnum):
+    """Enumeration of the logbook categories for the genetic algorithm."""
+    PARAMETER = "Parametre"
+    FITNESS = "Fitness"
+    WEIGHTED_FITNESS = "Weighted_fitness"
+
+
+class LogbookIndex(StrEnum):
+    """Enumeration of the logbook index for the genetic algorithm."""
+    GENERATION = "Generation"
+    PREVIOUS_GENERATION = "Is_From_Previous_Generation"
+    INDIVIDUAL = "Individual"
+
+
+def compute_stats(logbook: pd.DataFrame) -> pd.DataFrame:
     """Compute the statistics of the generations."""
     stats = logbook.loc[:, LogbookCategory.WEIGHTED_FITNESS]
     stats = stats[np.isfinite(stats.loc[:, LogbookCategory.WEIGHTED_FITNESS])]
@@ -51,7 +66,7 @@ def compute_stats(logbook: Logbook) -> pd.DataFrame:
 class SimulationManager:
     """Manages a set of parameter sets and caches simulation results to avoid unnecessary recalculations."""
 
-    param_sets: Logbook
+    param_sets: pd.DataFrame
     model_generator: ModelGeneratorProtocol
     functional_groups: FunctionalGroupSet
     _cache: list[xr.DataArray] = field(default_factory=list)
@@ -103,15 +118,18 @@ class SimpleViewer(AbstractViewer):
     @classmethod
     def from_optimization_results(
         cls,
-        logbook: Logbook,
+        logbook: OptimizationLog,
         functional_group_set: FunctionalGroupSet,
         model_generator: ModelGeneratorProtocol,
         observations: Sequence[TimeSeriesObservation],
         cost_function_weight: tuple[Number],
     ) -> SimpleViewer:
         """Create a SimpleViewer from optimization results."""
+        # Convert OptimizationLog to pandas DataFrame for compatibility
+        pandas_logbook = logbook.to_pandas()
+
         return cls(
-            logbook=logbook,
+            logbook=pandas_logbook,
             functional_group_set=functional_group_set,
             model_generator=model_generator,
             observations=observations,
