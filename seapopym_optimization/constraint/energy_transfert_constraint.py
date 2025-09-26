@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import partial
-from typing import Callable, Sequence
+from typing import Callable
 
 from seapopym_optimization.constraint.base_constraint import AbstractConstraint
 
