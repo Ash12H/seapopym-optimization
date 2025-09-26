@@ -8,7 +8,7 @@ import pandas as pd
 
 from seapopym_optimization.cost_function.base_observation import AbstractObservation
 from seapopym_optimization.functional_group.base_functional_group import FunctionalGroupSet
-from seapopym_optimization.model_generator.base_model_generator import AbstractModelGenerator
+from seapopym_optimization.protocols import ModelGeneratorProtocol
 
 
 @dataclass
@@ -22,7 +22,7 @@ class AbstractViewer(ABC):
         DataFrame containing the log of the optimization process.
     functional_group_set : FunctionalGroupSet
         Set of functional groups used in the optimization.
-    model_generator : AbstractModelGenerator
+    model_generator : ModelGeneratorProtocol
         Model generator used to create models for the optimization.
     observations : Sequence[AbstractObservation]
         Sequence of observations used in the optimization process.
@@ -31,5 +31,5 @@ class AbstractViewer(ABC):
 
     logbook: pd.DataFrame
     functional_group_set: FunctionalGroupSet
-    model_generator: AbstractModelGenerator
+    model_generator: ModelGeneratorProtocol
     observations: Sequence[AbstractObservation]

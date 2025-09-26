@@ -12,7 +12,6 @@ from deap import algorithms, base, tools
 
 from seapopym_optimization.algorithm.genetic_algorithm.base_genetic_algorithm import individual_creator
 from seapopym_optimization.algorithm.genetic_algorithm.simple_logbook import Logbook, LogbookCategory, LogbookIndex
-from seapopym_optimization.viewer.simple_viewer import SimpleViewer
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -23,8 +22,9 @@ if TYPE_CHECKING:
     from pandas._typing import FilePath, WriteBuffer
 
     from seapopym_optimization.constraint.energy_transfert_constraint import AbstractConstraint
-    from seapopym_optimization.cost_function.base_cost_function import AbstractCostFunction
     from seapopym_optimization.functional_group.no_transport_functional_groups import Parameter
+    from seapopym_optimization.protocols import CostFunctionProtocol
+    from seapopym_optimization.viewer.simple_viewer import SimpleViewer
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +75,7 @@ class SimpleGeneticAlgorithmParameters:
         )
 
     def generate_toolbox(
-        self: SimpleGeneticAlgorithmParameters, parameters: Sequence[Parameter], cost_function: AbstractCostFunction
+        self: SimpleGeneticAlgorithmParameters, parameters: Sequence[Parameter], cost_function: CostFunctionProtocol
     ) -> base.Toolbox:
         """Generate a DEAP toolbox with the necessary functions for the genetic algorithm."""
         toolbox = base.Toolbox()
@@ -108,7 +108,7 @@ class SimpleGeneticAlgorithm:
     ----------
     meta_parameter: SimpleGeneticAlgorithmParameters
         The parameters of the genetic algorithm.
-    cost_function: AbstractCostFunction
+    cost_function: CostFunctionProtocol
         The cost function to optimize.
     client: Client | None
         The Dask client to use for parallel computing. If None, the algorithm will run in serial.
@@ -120,7 +120,7 @@ class SimpleGeneticAlgorithm:
     """
 
     meta_parameter: SimpleGeneticAlgorithmParameters
-    cost_function: AbstractCostFunction
+    cost_function: CostFunctionProtocol
     client: Client | None = None
     constraint: Sequence[AbstractConstraint] | None = None
 

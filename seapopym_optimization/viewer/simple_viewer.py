@@ -15,8 +15,8 @@ from scipy.stats import entropy
 from seapopym.standard.labels import ForcingLabels
 from sklearn.preprocessing import QuantileTransformer
 
-from seapopym_optimization.cost_function.simple_cost_function import DayCycle, TimeSeriesObservation
 from seapopym_optimization.algorithm.genetic_algorithm.simple_logbook import Logbook, LogbookCategory, LogbookIndex
+from seapopym_optimization.cost_function.simple_cost_function import DayCycle, TimeSeriesObservation
 from seapopym_optimization.viewer.base_viewer import AbstractViewer
 
 if TYPE_CHECKING:
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from plotly.graph_objects import Figure
 
     from seapopym_optimization.functional_group.base_functional_group import FunctionalGroupSet
-    from seapopym_optimization.model_generator.base_model_generator import AbstractModelGenerator
+    from seapopym_optimization.protocols import ModelGeneratorProtocol
 
 
 def compute_stats(logbook: Logbook) -> pd.DataFrame:
@@ -52,7 +52,7 @@ class SimulationManager:
     """Manages a set of parameter sets and caches simulation results to avoid unnecessary recalculations."""
 
     param_sets: Logbook
-    model_generator: AbstractModelGenerator
+    model_generator: ModelGeneratorProtocol
     functional_groups: FunctionalGroupSet
     _cache: list[xr.DataArray] = field(default_factory=list)
 
