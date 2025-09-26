@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from functools import partial
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
@@ -14,11 +15,14 @@ from pandas.tseries.frequencies import to_offset
 from seapopym.standard.labels import ConfigurationLabels, CoordinatesLabels, ForcingLabels
 from seapopym.standard.units import StandardUnitsLabels
 
-from seapopym_optimization.cost_function.base_cost_function import AbstractCostFunction
+# No import needed - using Protocol approach with duck typing
 from seapopym_optimization.cost_function.base_observation import AbstractObservation, DayCycle
+from seapopym_optimization.functional_group.base_functional_group import FunctionalGroupSet
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable
+
+    from seapopym_optimization.protocols import ModelGeneratorProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -131,7 +135,7 @@ def root_mean_square_error(
 
 
 @dataclass(kw_only=True)
-class SimpleCostFunction(AbstractCostFunction):
+class SimpleCostFunction:
     """
     Generator of the cost function for the 'SeapoPym No Transport' model.
 
@@ -149,11 +153,22 @@ class SimpleCostFunction(AbstractCostFunction):
 
     """
 
+    model_generator: ModelGeneratorProtocol
     observations: Sequence[TimeSeriesObservation]  # TODO(Jules): Should accept spatial observations?
+    functional_groups: FunctionalGroupSet
     evaluation_function: callable[[xr.DataArray, xr.DataArray], xr.DataArray] = field(
         default=partial(root_mean_square_error, root=True, centered=False, normalized=False)
     )
     resample_prediction: bool = True
+
+    def __post_init__(self: SimpleCostFunction) -> None:
+        """Check types and convert functional groups if necessary."""
+        if not isinstance(self.functional_groups, FunctionalGroupSet):
+            self.functional_groups = FunctionalGroupSet(self.functional_groups)
+
+        if not isinstance(self.observations, Sequence):
+            msg = "Observations must be a Sequence of AbstractObservation."
+            raise TypeError(msg)
 
     def _cost_function(self: SimpleCostFunction, args: np.ndarray) -> tuple:
         model = self.model_generator.generate(
@@ -190,3 +205,7 @@ class SimpleCostFunction(AbstractCostFunction):
             )
             for obs in self.observations
         )
+
+    def generate(self: SimpleCostFunction) -> Callable[[Sequence[float]], tuple]:
+        """Generate the partial cost function used for optimization."""
+        return partial(self._cost_function)

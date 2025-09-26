@@ -13,11 +13,11 @@ from seapopym.configuration.no_transport import (
 )
 from seapopym.model import NoTransportModel
 
-from seapopym_optimization.model_generator.base_model_generator import AbstractModelGenerator
+# No import needed - using Protocol approach with duck typing
 
 
 @dataclass(kw_only=True)
-class NoTransportModelGenerator(AbstractModelGenerator):
+class NoTransportModelGenerator:
     """
     Model generator for SeapoPym NoTransportModel.
     This class is responsible for generating a NoTransportModel with the specified functional group parameters and
