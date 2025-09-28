@@ -65,3 +65,11 @@ class ConstraintProtocol(Protocol):
     def generate(self, parameter_names: Sequence[str]) -> tools.DeltaPenalty:
         """Generate the DEAP DeltaPenalty constraint for the optimization algorithm."""
         ...
+
+
+@runtime_checkable
+class ObservationProtocol(Protocol):
+    """Protocol for observations used in cost functions."""
+
+    name: str
+    observation: object

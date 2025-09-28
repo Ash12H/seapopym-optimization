@@ -12,8 +12,6 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from seapopym_optimization.functional_group.parameter_initialization import random_uniform_exclusive
-
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
@@ -40,7 +38,7 @@ class Parameter:
     name: str
     lower_bound: float
     upper_bound: float
-    init_method: Callable[[float, float], float] = random_uniform_exclusive
+    init_method: Callable[[float, float], float]
 
     def __post_init__(self: Parameter) -> None:
         """Check that the parameter is correctly defined."""

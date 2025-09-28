@@ -1,4 +1,4 @@
-from .simple_genetic_algorithm import SimpleGeneticAlgorithm, SimpleGeneticAlgorithmParameters
+from .genetic_algorithm import GeneticAlgorithm, GeneticAlgorithmParameters
 
 # Import protocols for type checking and runtime validation
 from ...protocols import OptimizationAlgorithmProtocol, OptimizationParametersProtocol

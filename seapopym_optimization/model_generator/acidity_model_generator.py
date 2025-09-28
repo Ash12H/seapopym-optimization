@@ -1,5 +1,7 @@
 """Model generator for SeapoPym AcidityModel."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 
 from seapopym.configuration.acidity import (
@@ -76,4 +78,4 @@ class AcidityModelGenerator(NoTransportModelGenerator):
             kernel=self.kernel,
         )
 
-        return AcidityModel.from_configuration(model_configuration)
+        return self.model_type.from_configuration(model_configuration)

@@ -1,5 +1,7 @@
 """Model generator for SeapoPym NoTransportModel."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 
 from seapopym.configuration.no_transport import (
@@ -94,4 +96,4 @@ class NoTransportModelGenerator:
             kernel=self.kernel,
         )
 
-        return NoTransportModel.from_configuration(model_configuration)
+        return self.model_type.from_configuration(model_configuration)

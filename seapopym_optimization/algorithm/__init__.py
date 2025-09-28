@@ -3,8 +3,8 @@
 from .genetic_algorithm import (
     OptimizationAlgorithmProtocol,
     OptimizationParametersProtocol,
-    SimpleGeneticAlgorithm,
-    SimpleGeneticAlgorithmParameters,
+    GeneticAlgorithm,
+    GeneticAlgorithmParameters,
 )
 
 __all__ = [

@@ -15,9 +15,9 @@ from pygam import LinearGAM, l, s
 from seapopym.standard.labels import ConfigurationLabels, CoordinatesLabels, ForcingLabels
 from statsmodels.tsa import seasonal
 
-from seapopym_optimization.cost_function.base_observation import DayCycle
-from seapopym_optimization.cost_function.simple_cost_function import (
-    SimpleRootMeanSquareErrorCostFunction,
+from seapopym_optimization.cost_function.cost_function import (
+    CostFunction,
+    DayCycle,
     TimeSeriesObservation,
     aggregate_biomass_by_layer,
     root_mean_square_error,
@@ -231,7 +231,7 @@ class STLSeasonalObservation(SeasonalObservation):
 
 
 def _seasonal_rmse(
-    self: SimpleRootMeanSquareErrorCostFunction,
+    self: CostFunction,
     prediction: xr.DataArray,
     observation: SeasonalObservation,
     *,
@@ -280,7 +280,7 @@ def _seasonal_rmse(
 
 
 @dataclass(kw_only=True)
-class SeasonalityCostFunction(SimpleRootMeanSquareErrorCostFunction, ABC):
+class SeasonalityCostFunction(CostFunction, ABC):
     """Abstract class for cost functions that compare model predictions against seasonal observations."""
 
     seasonal_weights: Sequence[Number]

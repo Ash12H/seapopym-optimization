@@ -7,9 +7,9 @@ import numpy as np
 import xarray as xr
 from seapopym.standard.labels import ConfigurationLabels, CoordinatesLabels, ForcingLabels
 
-from seapopym_optimization.cost_function.base_observation import DayCycle
-from seapopym_optimization.cost_function.simple_cost_function import (
-    SimpleRootMeanSquareErrorCostFunction,
+from seapopym_optimization.cost_function.cost_function import (
+    CostFunction,
+    DayCycle,
     TimeSeriesObservation,
     aggregate_biomass_by_layer,
 )
@@ -73,7 +73,7 @@ class ErrorWeightedObservation(TimeSeriesObservation):
 
 
 @dataclass(kw_only=True)
-class ErrorWeightedRMSECostFunction(SimpleRootMeanSquareErrorCostFunction):
+class ErrorWeightedRMSECostFunction(CostFunction):
     """A cost function that computes the error weighted root mean square error (RMSE) for a SeapoPym model."""
 
     observations: Sequence[ErrorWeightedObservation]

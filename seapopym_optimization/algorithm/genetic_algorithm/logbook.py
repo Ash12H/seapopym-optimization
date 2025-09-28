@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+
 import numpy as np
 import pandas as pd
 import xarray as xr
 
+from seapopym_optimization.functional_group.parameter_initialization import initialize_with_sobol_sampling
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
+
     from seapopym_optimization.functional_group.base_functional_group import FunctionalGroupSet
 
 
@@ -62,6 +66,7 @@ class OptimizationLog:
         -------
         OptimizationLog
             New logbook instance
+
         """
         n_individuals = len(individual)
         n_parameters = len(parameter_names)
@@ -71,60 +76,61 @@ class OptimizationLog:
         param_data = np.array(individual).reshape(1, n_individuals, n_parameters)
         parameters = xr.DataArray(
             param_data,
-            dims=['generation', 'individual', 'parameter'],
+            dims=["generation", "individual", "parameter"],
             coords={
-                'generation': [generation],
-                'individual': range(n_individuals),
-                'parameter': parameter_names,
+                "generation": [generation],
+                "individual": range(n_individuals),
+                "parameter": parameter_names,
             },
-            name='parameters'
+            name="parameters",
         )
 
         # Create empty fitness arrays
         fitness = xr.DataArray(
             np.full((1, n_individuals, n_objectives), np.nan),
-            dims=['generation', 'individual', 'objective'],
+            dims=["generation", "individual", "objective"],
             coords={
-                'generation': [generation],
-                'individual': range(n_individuals),
-                'objective': fitness_names,
+                "generation": [generation],
+                "individual": range(n_individuals),
+                "objective": fitness_names,
             },
-            name='fitness'
+            name="fitness",
         )
 
         weighted_fitness = xr.DataArray(
             np.full((1, n_individuals), np.nan),
-            dims=['generation', 'individual'],
+            dims=["generation", "individual"],
             coords={
-                'generation': [generation],
-                'individual': range(n_individuals),
+                "generation": [generation],
+                "individual": range(n_individuals),
             },
-            name='weighted_fitness'
+            name="weighted_fitness",
         )
 
         is_from_previous = xr.DataArray(
             np.array(is_from_previous_generation).reshape(1, n_individuals),
-            dims=['generation', 'individual'],
+            dims=["generation", "individual"],
             coords={
-                'generation': [generation],
-                'individual': range(n_individuals),
+                "generation": [generation],
+                "individual": range(n_individuals),
             },
-            name='is_from_previous'
+            name="is_from_previous",
         )
 
         # Create dataset
         dataset = xr.Dataset(
             {
-                'parameters': parameters,
-                'fitness': fitness,
-                'weighted_fitness': weighted_fitness,
-                'is_from_previous': is_from_previous,
+                "parameters": parameters,
+                "fitness": fitness,
+                "weighted_fitness": weighted_fitness,
+                "is_from_previous": is_from_previous,
             },
-            attrs=algorithm_metadata or {}
+            attrs=algorithm_metadata or {},
         )
 
         return cls(dataset)
 
+    # TODO(Jules): Useless
     def add_generation(
         self,
         generation: int,
@@ -140,62 +146,52 @@ class OptimizationLog:
         new_param_data = np.array(individual).reshape(1, n_individuals, n_parameters)
         new_parameters = xr.DataArray(
             new_param_data,
-            dims=['generation', 'individual', 'parameter'],
+            dims=["generation", "individual", "parameter"],
             coords={
-                'generation': [generation],
-                'individual': range(n_individuals),
-                'parameter': self.parameter_names,
-            }
+                "generation": [generation],
+                "individual": range(n_individuals),
+                "parameter": self.parameter_names,
+            },
         )
 
         new_fitness = xr.DataArray(
             np.full((1, n_individuals, n_objectives), np.nan),
-            dims=['generation', 'individual', 'objective'],
+            dims=["generation", "individual", "objective"],
             coords={
-                'generation': [generation],
-                'individual': range(n_individuals),
-                'objective': self.objective_names,
-            }
+                "generation": [generation],
+                "individual": range(n_individuals),
+                "objective": self.objective_names,
+            },
         )
 
         new_weighted_fitness = xr.DataArray(
             np.full((1, n_individuals), np.nan),
-            dims=['generation', 'individual'],
+            dims=["generation", "individual"],
             coords={
-                'generation': [generation],
-                'individual': range(n_individuals),
-            }
+                "generation": [generation],
+                "individual": range(n_individuals),
+            },
         )
 
         new_is_from_previous = xr.DataArray(
             np.array(is_from_previous_generation).reshape(1, n_individuals),
-            dims=['generation', 'individual'],
+            dims=["generation", "individual"],
             coords={
-                'generation': [generation],
-                'individual': range(n_individuals),
-            }
+                "generation": [generation],
+                "individual": range(n_individuals),
+            },
         )
 
         # Concatenate with existing data (use join='outer' for different individual counts)
-        self.dataset['parameters'] = xr.concat(
-            [self.dataset['parameters'], new_parameters],
-            dim='generation',
-            join='outer'
+        self.dataset["parameters"] = xr.concat(
+            [self.dataset["parameters"], new_parameters], dim="generation", join="outer"
         )
-        self.dataset['fitness'] = xr.concat(
-            [self.dataset['fitness'], new_fitness],
-            dim='generation',
-            join='outer'
+        self.dataset["fitness"] = xr.concat([self.dataset["fitness"], new_fitness], dim="generation", join="outer")
+        self.dataset["weighted_fitness"] = xr.concat(
+            [self.dataset["weighted_fitness"], new_weighted_fitness], dim="generation", join="outer"
         )
-        self.dataset['weighted_fitness'] = xr.concat(
-            [self.dataset['weighted_fitness'], new_weighted_fitness],
-            dim='generation',
-            join='outer'
-        )
-        self.dataset['is_from_previous'] = xr.concat(
-            [self.dataset['is_from_previous'], new_is_from_previous],
-            dim='generation',
-            join='outer'
+        self.dataset["is_from_previous"] = xr.concat(
+            [self.dataset["is_from_previous"], new_is_from_previous], dim="generation", join="outer"
         )
 
     def update_fitness(
@@ -209,34 +205,33 @@ class OptimizationLog:
             # Update multi-objective fitness
             for obj_idx, fitness_val in enumerate(fitness_tuple):
                 obj_name = self.objective_names[obj_idx]
-                self.dataset['fitness'].loc[{'generation': generation, 'individual': ind_idx, 'objective': obj_name}] = fitness_val
+                self.dataset["fitness"].loc[
+                    {"generation": generation, "individual": ind_idx, "objective": obj_name}
+                ] = fitness_val
 
             # Update weighted fitness (simple sum for now)
             weighted_val = sum(fitness_tuple) if not any(np.isnan(fitness_tuple)) else np.nan
-            self.dataset['weighted_fitness'].loc[{'generation': generation, 'individual': ind_idx}] = weighted_val
+            self.dataset["weighted_fitness"].loc[{"generation": generation, "individual": ind_idx}] = weighted_val
 
     @property
     def parameter_names(self) -> list[str]:
         """Get parameter names."""
-        return list(self.dataset.coords['parameter'].values)
+        return list(self.dataset.coords["parameter"].values)
 
     @property
     def objective_names(self) -> list[str]:
         """Get objective names."""
-        return list(self.dataset.coords['objective'].values)
+        return list(self.dataset.coords["objective"].values)
 
     @property
     def generations(self) -> list[int]:
         """Get list of generation numbers."""
-        return list(self.dataset.coords['generation'].values)
+        return list(self.dataset.coords["generation"].values)
 
     @property
     def n_individuals_per_generation(self) -> dict[int, int]:
         """Get number of individuals per generation."""
-        return {
-            int(gen): int(self.dataset.sel(generation=gen).dims['individual'])
-            for gen in self.generations
-        }
+        return {int(gen): int(self.dataset.sel(generation=gen).dims["individual"]) for gen in self.generations}
 
     def sel_generation(self, generation: int) -> xr.Dataset:
         """Select data for a specific generation."""
@@ -244,7 +239,7 @@ class OptimizationLog:
 
     def sel_parameter(self, parameter: str) -> xr.DataArray:
         """Select data for a specific parameter across all generations."""
-        return self.dataset['parameters'].sel(parameter=parameter)
+        return self.dataset["parameters"].sel(parameter=parameter)
 
     def copy(self) -> OptimizationLog:
         """Create a copy of the logbook."""
@@ -261,19 +256,15 @@ class OptimizationLog:
         df = self.dataset.to_dataframe()
 
         # Flatten parameter columns
-        param_df = df['parameters'].unstack('parameter')
-        param_df.columns = [f'param_{col}' for col in param_df.columns]
+        param_df = df["parameters"].unstack("parameter")
+        param_df.columns = [f"param_{col}" for col in param_df.columns]
 
         # Flatten fitness columns
-        fitness_df = df['fitness'].unstack('objective')
-        fitness_df.columns = [f'fitness_{col}' for col in fitness_df.columns]
+        fitness_df = df["fitness"].unstack("objective")
+        fitness_df.columns = [f"fitness_{col}" for col in fitness_df.columns]
 
         # Combine all data
-        result_df = pd.concat([
-            param_df,
-            fitness_df,
-            df[['weighted_fitness', 'is_from_previous']]
-        ], axis=1)
+        result_df = pd.concat([param_df, fitness_df, df[["weighted_fitness", "is_from_previous"]]], axis=1)
 
         return result_df
 
@@ -292,8 +283,8 @@ class OptimizationLog:
             Names of objectives
         """
         # Extract generations and individuals from MultiIndex
-        generations = df.index.get_level_values('generation').unique().sort_values()
-        max_individuals = df.groupby('generation').size().max()
+        generations = df.index.get_level_values("generation").unique().sort_values()
+        max_individuals = df.groupby("generation").size().max()
 
         # Initialize arrays
         n_gen, n_ind, n_param, n_obj = len(generations), max_individuals, len(parameter_names), len(objective_names)
@@ -310,34 +301,34 @@ class OptimizationLog:
 
             # Parameters
             for param_idx, param in enumerate(parameter_names):
-                if f'param_{param}' in gen_data.columns:
-                    param_data[gen_idx, :n_gen_individuals, param_idx] = gen_data[f'param_{param}'].values
+                if f"param_{param}" in gen_data.columns:
+                    param_data[gen_idx, :n_gen_individuals, param_idx] = gen_data[f"param_{param}"].values
 
             # Fitness
             for obj_idx, obj in enumerate(objective_names):
-                if f'fitness_{obj}' in gen_data.columns:
-                    fitness_data[gen_idx, :n_gen_individuals, obj_idx] = gen_data[f'fitness_{obj}'].values
+                if f"fitness_{obj}" in gen_data.columns:
+                    fitness_data[gen_idx, :n_gen_individuals, obj_idx] = gen_data[f"fitness_{obj}"].values
 
             # Weighted fitness and previous generation flag
-            if 'weighted_fitness' in gen_data.columns:
-                weighted_fitness_data[gen_idx, :n_gen_individuals] = gen_data['weighted_fitness'].values
-            if 'is_from_previous' in gen_data.columns:
-                is_from_previous_data[gen_idx, :n_gen_individuals] = gen_data['is_from_previous'].values
+            if "weighted_fitness" in gen_data.columns:
+                weighted_fitness_data[gen_idx, :n_gen_individuals] = gen_data["weighted_fitness"].values
+            if "is_from_previous" in gen_data.columns:
+                is_from_previous_data[gen_idx, :n_gen_individuals] = gen_data["is_from_previous"].values
 
         # Create xarray Dataset
         dataset = xr.Dataset(
             {
-                'parameters': (['generation', 'individual', 'parameter'], param_data),
-                'fitness': (['generation', 'individual', 'objective'], fitness_data),
-                'weighted_fitness': (['generation', 'individual'], weighted_fitness_data),
-                'is_from_previous': (['generation', 'individual'], is_from_previous_data),
+                "parameters": (["generation", "individual", "parameter"], param_data),
+                "fitness": (["generation", "individual", "objective"], fitness_data),
+                "weighted_fitness": (["generation", "individual"], weighted_fitness_data),
+                "is_from_previous": (["generation", "individual"], is_from_previous_data),
             },
             coords={
-                'generation': generations,
-                'individual': range(max_individuals),
-                'parameter': parameter_names,
-                'objective': objective_names,
-            }
+                "generation": generations,
+                "individual": range(max_individuals),
+                "parameter": parameter_names,
+                "objective": objective_names,
+            },
         )
 
         return cls(dataset)
@@ -370,7 +361,6 @@ class OptimizationLog:
         OptimizationLog
             New logbook instance with Sobol samples
         """
-        from seapopym_optimization.functional_group.sobol_initialization import initialize_with_sobol_sampling
 
         samples = initialize_with_sobol_sampling(functional_group_parameters, sample_number)
 
@@ -402,7 +392,7 @@ class OptimizationLog:
 
     def __len__(self) -> int:
         """Return total number of individuals across all generations."""
-        return int(self.dataset['parameters'].size / len(self.parameter_names))
+        return int(self.dataset["parameters"].size / len(self.parameter_names))
 
     def __repr__(self) -> str:
         """String representation of the logbook."""

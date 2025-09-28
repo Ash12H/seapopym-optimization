@@ -11,7 +11,6 @@ import numpy as np
 import xarray as xr
 from deap import algorithms, base, tools
 
-from seapopym_optimization.algorithm.genetic_algorithm.base_genetic_algorithm import individual_creator
 from seapopym_optimization.algorithm.genetic_algorithm.logbook import OptimizationLog
 
 if TYPE_CHECKING:
@@ -25,6 +24,29 @@ if TYPE_CHECKING:
     from seapopym_optimization.protocols import ConstraintProtocol, CostFunctionProtocol
 
 logger = logging.getLogger(__name__)
+
+
+def individual_creator(cost_function_weight: tuple[Number]) -> type:
+    """
+    Create a custom individual class for DEAP genetic algorithms.
+
+    This individual class inherits from `list` and includes a fitness attribute. It is redefined to work with the
+    Dask framework, which does not support the default DEAP individual structure created with `deap.creator.create`.
+    """
+
+    class Fitness(base.Fitness):
+        """Fitness class to store the fitness of an individual."""
+
+        weights = cost_function_weight
+
+    class Individual(list):
+        """Individual class to store the parameters of an individual."""
+
+        def __init__(self: Individual, iterator: Sequence, values: Sequence[Number] = ()) -> None:
+            super().__init__(iterator)
+            self.fitness = Fitness(values=values)
+
+    return Individual
 
 
 @dataclass
@@ -156,11 +178,7 @@ class GeneticAlgorithm:
             self.logbook = logbook
         else:
             # Concatenate the entire datasets along the generation dimension
-            combined_dataset = xr.concat(
-                [self.logbook.dataset, logbook.dataset],
-                dim="generation",
-                join="outer"
-            )
+            combined_dataset = xr.concat([self.logbook.dataset, logbook.dataset], dim="generation", join="outer")
             self.logbook = OptimizationLog(combined_dataset)
 
         if self.save is not None:
@@ -185,7 +203,9 @@ class GeneticAlgorithm:
 
         # Extract parameter values and fitness
         individual_params = [list(ind) for ind in individuals]
-        parameter_names = list(self.cost_function.functional_groups.unique_functional_groups_parameters_ordered().keys())
+        parameter_names = list(
+            self.cost_function.functional_groups.unique_functional_groups_parameters_ordered().keys()
+        )
         fitness_names = [obs.name for obs in self.cost_function.observations]
 
         # Extract fitness values
