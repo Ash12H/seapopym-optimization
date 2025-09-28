@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
@@ -23,7 +24,26 @@ if TYPE_CHECKING:
     from seapopym_optimization.functional_group.no_transport_functional_groups import Parameter
     from seapopym_optimization.protocols import ConstraintProtocol, CostFunctionProtocol
 
+try:
+    from dask.distributed import Future
+except ImportError:
+    Future = None
+
 logger = logging.getLogger(__name__)
+
+
+def is_distributed(obj: object) -> bool:
+    """Vérifie si un objet est une Future Dask distribuée."""
+    if Future is None:
+        return False
+    return isinstance(obj, Future)
+
+
+def has_distributed_data(model_generator: object, observations: object) -> bool:
+    """Vérifie si les données lourdes sont déjà distribuées."""
+    forcing_distributed = is_distributed(model_generator.forcing_parameters)
+    obs_distributed = any(is_distributed(obs.observation) for obs in observations)
+    return forcing_distributed or obs_distributed
 
 
 def individual_creator(cost_function_weight: tuple[Number]) -> type:
@@ -122,8 +142,30 @@ class GeneticAlgorithmParameters:
 @dataclass
 class GeneticAlgorithm:
     """
-    Contains the genetic algorithm parameters and the cost function to optimize. By default, the order of
-    of the process is SCM: Select, Cross, Mutate.
+    Algorithme génétique pour l'optimisation de modèles SeapoPym.
+
+    Par défaut, l'ordre du processus est SCM: Select, Cross, Mutate.
+
+    Optimisation parallèle avec Dask
+    --------------------------------
+    Pour éviter les fuites mémoire lors de l'optimisation parallèle, les données lourdes
+    (forcing_parameters, observations) doivent être distribuées sur les workers avec
+    broadcast=True.
+
+    Méthode 1 - Distribution automatique:
+        >>> ga = GeneticAlgorithm(client=client, cost_function=cost_function)
+        >>> ga.distribute_data()  # Distribue automatiquement avec broadcast=True
+        >>> results = ga.optimize()
+
+    Méthode 2 - Distribution manuelle:
+        >>> scattered_forcing = client.scatter(forcing_parameters, broadcast=True)
+        >>> scattered_obs = client.scatter(observation.observation, broadcast=True)
+        >>> # Remplacer dans les objets avant création du GeneticAlgorithm
+        >>> ga = GeneticAlgorithm(client=client, cost_function=cost_function)
+        >>> results = ga.optimize()
+
+    Note importante: broadcast=True est essentiel pour éviter la sérialisation
+    répétée des données lourdes vers chaque worker.
 
     Attributes
     ----------
@@ -172,6 +214,18 @@ class GeneticAlgorithm:
                 f"Got {len(self.meta_parameter.cost_function_weight)} and {len(self.cost_function.observations)}."
             )
             raise ValueError(msg)
+
+        # VALIDATION DE DISTRIBUTION
+        if self.client is not None and not has_distributed_data(
+            self.cost_function.model_generator, self.cost_function.observations
+        ):
+            warnings.warn(
+                "Client Dask fourni mais données non distribuées. "
+                "Cela peut causer des fuites mémoire lors de l'optimisation parallèle. "
+                "Utilisez ga.distribute_data() ou distribuez manuellement avec client.scatter(..., broadcast=True)",
+                UserWarning,
+                stacklevel=2,
+            )
 
     def update_logbook(self: GeneticAlgorithm, logbook: OptimizationLog) -> None:
         """Update the logbook with the new data and save to disk if a path is provided."""
@@ -278,6 +332,63 @@ class GeneticAlgorithm:
             self.update_logbook(logbook)
 
         return last_generation + 1, population
+
+    def distribute_data(self: GeneticAlgorithm) -> dict[str, bool]:
+        """
+        Distribue les données lourdes sur les workers Dask avec broadcast=True.
+
+        Returns
+        -------
+        dict[str, bool]
+            Statut de distribution pour chaque type de donnée:
+            - 'forcing_parameters': True si distribué avec succès
+            - 'observations': True si toutes distribuées avec succès
+
+        Raises
+        ------
+        RuntimeError
+            Si aucun client Dask n'est disponible
+
+        """
+        if self.client is None:
+            msg = "Aucun client Dask disponible. Distribution impossible."
+            raise RuntimeError(msg)
+
+        results = {"forcing_parameters": False, "observations": False}
+
+        # Distribuer forcing_parameters
+        if is_distributed(self.cost_function.model_generator.forcing_parameters):
+            warnings.warn(
+                "forcing_parameters déjà distribué. Ignoré.",
+                UserWarning,
+                stacklevel=2,
+            )
+            results["forcing_parameters"] = True
+        else:
+            logger.info("Distribution du forcing_parameters...")
+            scattered_forcing = self.client.scatter(
+                self.cost_function.model_generator.forcing_parameters,
+                broadcast=True,
+            )
+            self.cost_function.model_generator.forcing_parameters = scattered_forcing
+            results["forcing_parameters"] = True
+
+        # Distribuer observations
+        for i, obs in enumerate(self.cost_function.observations):
+            if is_distributed(obs.observation):
+                warnings.warn(
+                    f"observation[{i}] '{obs.name}' déjà distribuée. Ignorée.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+            else:
+                logger.info("Distribution de l'observation '%s'...", obs.name)
+                scattered_obs = self.client.scatter(obs.observation, broadcast=True)
+                obs.observation = scattered_obs
+
+        results["observations"] = True
+        logger.info("Distribution terminée avec succès.")
+        return results
 
     def optimize(self: GeneticAlgorithm) -> OptimizationLog:
         """This is the main function. Use it to optimize your model."""
