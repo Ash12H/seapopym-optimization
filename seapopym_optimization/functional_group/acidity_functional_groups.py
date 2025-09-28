@@ -1,3 +1,5 @@
+"""Defines the acidity functional group parameters for the SeapoPym Acidity model."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

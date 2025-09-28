@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import partial
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
 import numpy as np
 from deap import tools
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 @dataclass

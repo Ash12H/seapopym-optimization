@@ -36,7 +36,8 @@ class NoTransportModelGenerator:
 
     Methods
     -------
-    generate(functional_group_parameters: list[dict[str, float]], functional_group_names: list[str] | None) -> NoTransportModel
+    generate(functional_group_parameters: list[dict[str, float]], functional_group_names: list[str] | None)
+    -> NoTransportModel
         Generate a NoTransportModel with the given functional group parameters and names.
         Each functional group is created using the FunctionalGroupUnit with the specified parameters.
 

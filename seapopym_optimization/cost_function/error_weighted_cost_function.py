@@ -1,3 +1,5 @@
+"""Error weighted cost function module. Apply a weight to each observation error."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

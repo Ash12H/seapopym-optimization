@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import numpy as np
-import pandas as pd
 import xarray as xr
 
 from seapopym_optimization.functional_group.parameter_initialization import initialize_with_sobol_sampling
@@ -30,7 +29,7 @@ class OptimizationLog:
     - Attributes: algorithm metadata, parameter bounds, etc.
     """
 
-    def __init__(self, dataset: xr.Dataset):
+    def __init__(self, dataset: xr.Dataset) -> None:
         """Initialize XarrayLogbook with an xarray Dataset."""
         self.dataset = dataset
 

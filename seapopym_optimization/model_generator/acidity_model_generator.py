@@ -22,6 +22,8 @@ from seapopym_optimization.model_generator.no_transport_model_generator import N
 
 @dataclass(kw_only=True)
 class AcidityModelGenerator(NoTransportModelGenerator):
+    """Generates AcidityModel instances with specified functional group parameters."""
+
     forcing_parameters: ForcingParameter
     model_type: type[AcidityModel] = AcidityModel
     kernel: KernelParameter | None = field(default_factory=KernelParameter)

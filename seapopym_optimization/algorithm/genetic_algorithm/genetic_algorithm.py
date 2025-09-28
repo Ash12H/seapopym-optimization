@@ -86,6 +86,7 @@ class GeneticAlgorithmParameters:
     cost_function_weight: tuple[Number] = (-1.0,)
 
     def __post_init__(self: GeneticAlgorithmParameters) -> None:
+        """Check parameters and set default functions for selection, mating, mutation and variation."""
         self.select = tools.selTournament
         self.mate = tools.cxTwoPoint
         self.mutate = tools.mutPolynomialBounded
@@ -237,11 +238,11 @@ class GeneticAlgorithm:
             next_generation = new_generation + 1
             return next_generation, population
 
-        def create_population_from_logbook(generation_data) -> list[list]:
+        def create_population_from_logbook(generation_data: xr.Dataset) -> list[list]:
             """Create a population from the logbook xarray Dataset."""
             individuals = []
-            fitness_data = generation_data["fitness"].values
-            param_data = generation_data["parameters"].values
+            fitness_data = generation_data["fitness"].data
+            param_data = generation_data["parameters"].data
 
             for ind_idx in range(len(param_data)):
                 # Create individual with parameters
