@@ -11,15 +11,23 @@ if TYPE_CHECKING:
     from seapopym.standard.protocols import ModelProtocol
 
     from seapopym_optimization.algorithm.genetic_algorithm.logbook import OptimizationLog
-    from seapopym_optimization.cost_function.base_cost_function import AbstractCostFunction
     from seapopym_optimization.functional_group.no_transport_functional_groups import Parameter
+
+
+@runtime_checkable
+class CostFunctionProtocol(Protocol):
+    """Protocol for cost functions used in optimization."""
+
+    def generate(self) -> Callable[[Sequence[float]], tuple]:
+        """Generate the cost function used for optimization."""
+        ...
 
 
 @runtime_checkable
 class OptimizationParametersProtocol(Protocol):
     """Protocol for parameters of an optimization algorithm."""
 
-    def generate_toolbox(self, parameters: Sequence[Parameter], cost_function: AbstractCostFunction) -> base.Toolbox:
+    def generate_toolbox(self, parameters: Sequence[Parameter], cost_function: CostFunctionProtocol) -> base.Toolbox:
         """Return a DEAP toolbox configured with the necessary optimization algorithm functions."""
         ...
 
@@ -28,7 +36,7 @@ class OptimizationParametersProtocol(Protocol):
 class OptimizationAlgorithmProtocol(Protocol):
     """Protocol for an optimization algorithm implementation."""
 
-    cost_function: AbstractCostFunction
+    cost_function: CostFunctionProtocol
     constraint: Sequence[ConstraintProtocol] | None
 
     def optimize(self) -> OptimizationLog:
@@ -46,15 +54,6 @@ class ModelGeneratorProtocol(Protocol):
         functional_group_names: list[str] | None = None,
     ) -> ModelProtocol:
         """Generate a model with the given parameters."""
-        ...
-
-
-@runtime_checkable
-class CostFunctionProtocol(Protocol):
-    """Protocol for cost functions used in optimization."""
-
-    def generate(self) -> Callable[[Sequence[float]], tuple]:
-        """Generate the cost function used for optimization."""
         ...
 
 
