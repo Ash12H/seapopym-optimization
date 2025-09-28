@@ -18,32 +18,15 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
     from numbers import Number
 
-    from dask.distributed import Client
     from pandas._typing import FilePath, WriteBuffer
 
     from seapopym_optimization.functional_group.no_transport_functional_groups import Parameter
     from seapopym_optimization.protocols import ConstraintProtocol, CostFunctionProtocol
 
-try:
-    from dask.distributed import Future
-except ImportError:
-    Future = None
 
 logger = logging.getLogger(__name__)
 
 
-def is_distributed(obj: object) -> bool:
-    """Vérifie si un objet est une Future Dask distribuée."""
-    if Future is None:
-        return False
-    return isinstance(obj, Future)
-
-
-def has_distributed_data(model_generator: object, observations: object) -> bool:
-    """Vérifie si les données lourdes sont déjà distribuées."""
-    forcing_distributed = is_distributed(model_generator.forcing_parameters)
-    obs_distributed = any(is_distributed(obs.observation) for obs in observations)
-    return forcing_distributed or obs_distributed
 
 
 def individual_creator(cost_function_weight: tuple[Number]) -> type:
@@ -146,26 +129,14 @@ class GeneticAlgorithm:
 
     Par défaut, l'ordre du processus est SCM: Select, Cross, Mutate.
 
-    Optimisation parallèle avec Dask
-    --------------------------------
-    Pour éviter les fuites mémoire lors de l'optimisation parallèle, les données lourdes
-    (forcing_parameters, observations) doivent être distribuées sur les workers avec
-    broadcast=True.
+    Utilise le pattern Strategy pour l'évaluation des individus, permettant
+    de changer facilement entre mode séquentiel et hybride selon les besoins.
 
-    Méthode 1 - Distribution automatique:
-        >>> ga = GeneticAlgorithm(client=client, cost_function=cost_function)
-        >>> ga.distribute_data()  # Distribue automatiquement avec broadcast=True
-        >>> results = ga.optimize()
-
-    Méthode 2 - Distribution manuelle:
-        >>> scattered_forcing = client.scatter(forcing_parameters, broadcast=True)
-        >>> scattered_obs = client.scatter(observation.observation, broadcast=True)
-        >>> # Remplacer dans les objets avant création du GeneticAlgorithm
-        >>> ga = GeneticAlgorithm(client=client, cost_function=cost_function)
-        >>> results = ga.optimize()
-
-    Note importante: broadcast=True est essentiel pour éviter la sérialisation
-    répétée des données lourdes vers chaque worker.
+    Examples
+    --------
+    >>> from seapopym_optimization.algorithm.genetic_algorithm import GeneticAlgorithmFactory
+    >>> ga = GeneticAlgorithmFactory.create_sequential(meta_params, cost_function)
+    >>> results = ga.optimize()
 
     Attributes
     ----------
@@ -173,8 +144,8 @@ class GeneticAlgorithm:
         The parameters of the genetic algorithm.
     cost_function: CostFunctionProtocol
         The cost function to optimize.
-    client: Client | None
-        The Dask client to use for parallel computing. If None, the algorithm will run in serial.
+    evaluation_strategy: EvaluationStrategy
+        Strategy pattern for evaluating individuals.
     constraint: Sequence[ConstraintProtocol] | None
         The constraints to apply to the individuals. If None, no constraints are applied.
     save: PathLike | None
@@ -184,7 +155,7 @@ class GeneticAlgorithm:
 
     meta_parameter: GeneticAlgorithmParameters
     cost_function: CostFunctionProtocol
-    client: Client | None = None
+    evaluation_strategy: object = field(default=None)  # Will default to SequentialEvaluation
     constraint: Sequence[ConstraintProtocol] | None = None
 
     save: FilePath | WriteBuffer[bytes] | None = None
@@ -192,40 +163,36 @@ class GeneticAlgorithm:
     toolbox: base.Toolbox | None = field(default=None, init=False, repr=False)
 
     def __post_init__(self: GeneticAlgorithm) -> None:
-        """Check parameters."""
-        # logbook is now always XarrayLogbook or None
+        """Check parameters et initialise la stratégie d'évaluation."""
+        # Initialiser la stratégie d'évaluation si non fournie
+        if self.evaluation_strategy is None:
+            # Mode séquentiel par défaut
+            from seapopym_optimization.algorithm.genetic_algorithm.evaluation_strategies import SequentialEvaluation
+            self.evaluation_strategy = SequentialEvaluation()
 
+        # Configuration du logbook
         if self.save is not None:
             self.save = Path(self.save)
             if self.save.exists():
                 waring_msg = f"Logbook file {self.save} already exists. It will be overwritten."
                 logger.warning(waring_msg)
 
+        # Génération du toolbox
         ordered_parameters = self.cost_function.functional_groups.unique_functional_groups_parameters_ordered()
         self.toolbox = self.meta_parameter.generate_toolbox(ordered_parameters.values(), self.cost_function)
 
+        # Application des contraintes
         if self.constraint is not None:
             for constraint in self.constraint:
                 self.toolbox.decorate("evaluate", constraint.generate(list(ordered_parameters.keys())))
 
+        # Validation des poids
         if len(self.meta_parameter.cost_function_weight) != len(self.cost_function.observations):
             msg = (
                 "The cost function weight must have the same length as the number of observations. "
                 f"Got {len(self.meta_parameter.cost_function_weight)} and {len(self.cost_function.observations)}."
             )
             raise ValueError(msg)
-
-        # VALIDATION DE DISTRIBUTION
-        if self.client is not None and not has_distributed_data(
-            self.cost_function.model_generator, self.cost_function.observations
-        ):
-            warnings.warn(
-                "Client Dask fourni mais données non distribuées. "
-                "Cela peut causer des fuites mémoire lors de l'optimisation parallèle. "
-                "Utilisez ga.distribute_data() ou distribuez manuellement avec client.scatter(..., broadcast=True)",
-                UserWarning,
-                stacklevel=2,
-            )
 
     def update_logbook(self: GeneticAlgorithm, logbook: OptimizationLog) -> None:
         """Update the logbook with the new data and save to disk if a path is provided."""
@@ -240,18 +207,22 @@ class GeneticAlgorithm:
             self.logbook.save_netcdf(str(self.save))
 
     def _evaluate(self: GeneticAlgorithm, individuals: Sequence, generation: int) -> OptimizationLog:
-        """Evaluate the cost function of all new individuals and create XarrayLogbook."""
+        """
+        Évalue les individus en déléguant à la stratégie d'évaluation.
+        Logique simplifiée et focalisée sur la création du logbook.
+        """
 
         def update_fitness(individuals: list) -> list:
             known = [ind.fitness.valid for ind in individuals]
             invalid_ind = [ind for ind in individuals if not ind.fitness.valid]
-            if self.client is None:
-                fitnesses = list(map(self.toolbox.evaluate, invalid_ind))
-            else:
-                futures_results = self.client.map(self.toolbox.evaluate, invalid_ind)
-                fitnesses = self.client.gather(futures_results)
-            for ind, fit in zip(invalid_ind, fitnesses, strict=True):
-                ind.fitness.values = fit
+
+            if invalid_ind:
+                # Délégation à la stratégie d'évaluation
+                fitnesses = self.evaluation_strategy.evaluate(invalid_ind, self.toolbox)
+
+                for ind, fit in zip(invalid_ind, fitnesses, strict=True):
+                    ind.fitness.values = fit
+
             return known
 
         known = update_fitness(individuals)
@@ -333,62 +304,6 @@ class GeneticAlgorithm:
 
         return last_generation + 1, population
 
-    def distribute_data(self: GeneticAlgorithm) -> dict[str, bool]:
-        """
-        Distribue les données lourdes sur les workers Dask avec broadcast=True.
-
-        Returns
-        -------
-        dict[str, bool]
-            Statut de distribution pour chaque type de donnée:
-            - 'forcing_parameters': True si distribué avec succès
-            - 'observations': True si toutes distribuées avec succès
-
-        Raises
-        ------
-        RuntimeError
-            Si aucun client Dask n'est disponible
-
-        """
-        if self.client is None:
-            msg = "Aucun client Dask disponible. Distribution impossible."
-            raise RuntimeError(msg)
-
-        results = {"forcing_parameters": False, "observations": False}
-
-        # Distribuer forcing_parameters
-        if is_distributed(self.cost_function.model_generator.forcing_parameters):
-            warnings.warn(
-                "forcing_parameters déjà distribué. Ignoré.",
-                UserWarning,
-                stacklevel=2,
-            )
-            results["forcing_parameters"] = True
-        else:
-            logger.info("Distribution du forcing_parameters...")
-            scattered_forcing = self.client.scatter(
-                self.cost_function.model_generator.forcing_parameters,
-                broadcast=True,
-            )
-            self.cost_function.model_generator.forcing_parameters = scattered_forcing
-            results["forcing_parameters"] = True
-
-        # Distribuer observations
-        for i, obs in enumerate(self.cost_function.observations):
-            if is_distributed(obs.observation):
-                warnings.warn(
-                    f"observation[{i}] '{obs.name}' déjà distribuée. Ignorée.",
-                    UserWarning,
-                    stacklevel=2,
-                )
-            else:
-                logger.info("Distribution de l'observation '%s'...", obs.name)
-                scattered_obs = self.client.scatter(obs.observation, broadcast=True)
-                obs.observation = scattered_obs
-
-        results["observations"] = True
-        logger.info("Distribution terminée avec succès.")
-        return results
 
     def optimize(self: GeneticAlgorithm) -> OptimizationLog:
         """This is the main function. Use it to optimize your model."""
