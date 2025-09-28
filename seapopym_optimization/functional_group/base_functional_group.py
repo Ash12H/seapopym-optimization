@@ -63,16 +63,6 @@ class AbstractFunctionalGroup(ABC):
         """Return the functional group as a dictionary with parameter names as keys (without functional group name)."""
         return {field.name: getattr(self, field.name) for field in fields(self) if field.name != "name"}
 
-    def get_fixed_parameters(self: AbstractFunctionalGroup, *, fill_with_name: float = True) -> tuple:
-        """
-        Return a tuple that contains all the functional group parameters (except name) as float values. When value is
-        not set, return np.NAN.
-        """
-        return tuple(
-            (param.name if fill_with_name else np.nan) if isinstance(param, Parameter) else param
-            for param in self.parameters
-        )
-
     def get_parameters_to_optimize(self: AbstractFunctionalGroup) -> Sequence[Parameter]:
         """Return the parameters to optimize as a sequence of `Parameter`."""
         return tuple(param for param in self.parameters if isinstance(param, Parameter))
