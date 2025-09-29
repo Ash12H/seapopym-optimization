@@ -295,7 +295,7 @@ class SeasonalityCostFunction(CostFunction, ABC):
         self.seasonal_weights = np.asarray(self.seasonal_weights) / np.sum(self.seasonal_weights)
 
     def _cost_function(self: SeasonalityCostFunction, args: np.ndarray) -> tuple:
-        model = self.model_generator.generate(
+        model = self.configuration_generator.generate(
             functional_group_names=self.functional_groups.functional_groups_name(),
             functional_group_parameters=self.functional_groups.generate(args),
         )

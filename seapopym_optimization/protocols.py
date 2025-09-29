@@ -8,7 +8,6 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
     from deap import base, tools
-    from seapopym.standard.protocols import ModelProtocol
 
     from seapopym_optimization.algorithm.genetic_algorithm.logbook import OptimizationLog
     from seapopym_optimization.functional_group.no_transport_functional_groups import Parameter
@@ -41,19 +40,6 @@ class OptimizationAlgorithmProtocol(Protocol):
 
     def optimize(self) -> OptimizationLog:
         """Run the optimization algorithm and return the optimization results as an OptimizationLog."""
-        ...
-
-
-@runtime_checkable
-class ModelGeneratorProtocol(Protocol):
-    """Protocol for model generators in SeapoPym optimization."""
-
-    def generate(
-        self,
-        functional_group_parameters: list[dict[str, float]],
-        functional_group_names: list[str] | None = None,
-    ) -> ModelProtocol:
-        """Generate a model with the given parameters."""
         ...
 
 

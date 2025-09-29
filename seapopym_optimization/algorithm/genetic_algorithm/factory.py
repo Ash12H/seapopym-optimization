@@ -181,7 +181,7 @@ class GeneticAlgorithmFactory:
         if auto_distribute:
             # Automatically distribute heavy data
             logger.info("Auto-distributing data...")
-            dist_manager.distribute_forcing(cost_function.model_generator.forcing_parameters)
+            dist_manager.distribute_forcing(cost_function.configuration_generator.forcing_parameters)
             dist_manager.distribute_observations(cost_function.observations)
 
         # Create distributed evaluation strategy

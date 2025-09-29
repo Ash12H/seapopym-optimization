@@ -81,7 +81,7 @@ class ErrorWeightedRMSECostFunction(CostFunction):
     observations: Sequence[ErrorWeightedObservation]
 
     def _cost_function(self: ErrorWeightedRMSECostFunction, args: np.ndarray) -> tuple:
-        model = self.model_generator.generate(
+        model = self.configuration_generator.generate(
             functional_group_names=self.functional_groups.functional_groups_name(),
             functional_group_parameters=self.functional_groups.generate(args),
         )

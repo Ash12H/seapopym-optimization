@@ -12,8 +12,9 @@ from typing import TYPE_CHECKING, Any
 
 from dask.distributed import Future
 
+from seapopym_optimization.configuration_generator import NoTransportConfigurationGenerator
 from seapopym_optimization.cost_function.cost_function import CostFunction, TimeSeriesObservation
-from seapopym_optimization.model_generator import NoTransportModelGenerator
+from seapopym_optimization.protocols import CostFunctionProtocol
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -21,7 +22,6 @@ if TYPE_CHECKING:
     from dask.distributed import Client
 
     from seapopym_optimization.functional_group.base_functional_group import FunctionalGroupSet
-    from seapopym_optimization.protocols import CostFunctionProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -171,7 +171,7 @@ class DistributionManager:
             msg = "Data not distributed. Call distribute_* methods first."
             raise RuntimeError(msg)
 
-        # TODO(Jules): Cost function use ModelGenerator so the forcing fields are stored inside. To allow partial
+        # TODO(Jules): Cost function use ConfigurationGenerator so the forcing fields are stored inside. To allow partial
         # function with this signature, we need to refactor CostFunction to have forcing_parameters as a direct
         # attribute.
 
@@ -223,7 +223,7 @@ def distributed_evaluate(
     """
     # Import here to avoid circular imports on workers
     # Create temporary model generator with resolved data
-    temp_model_generator = NoTransportModelGenerator(forcing_parameters=forcing_future)
+    configuration_generator = NoTransportConfigurationGenerator(forcing_parameters=forcing_future)
 
     # Create temporary observations with resolved data but original metadata
     temp_observations = []
@@ -237,7 +237,7 @@ def distributed_evaluate(
 
     # Create temporary cost function
     temp_cost_function = CostFunction(
-        model_generator=temp_model_generator,
+        configuration_generator=configuration_generator,
         observations=temp_observations,
         functional_groups=functional_groups,
     )

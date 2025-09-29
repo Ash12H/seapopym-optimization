@@ -69,15 +69,15 @@ class AbstractFunctionalGroup(ABC):
 
 
 @dataclass
-class FunctionalGroupSet:
+class FunctionalGroupSet[T: AbstractFunctionalGroup]:
     """The structure used to generate the matrix of all parameters for all functional groups."""
 
-    functional_groups: Sequence[AbstractFunctionalGroup]
+    functional_groups: Sequence[T]
 
     def __post_init__(self: FunctionalGroupSet) -> None:
-        """Check that the functional groups are correctly defined."""
-        if not all(isinstance(group, AbstractFunctionalGroup) for group in self.functional_groups):
-            msg = "All functional groups must inherit from AbstractFunctionalGroup."
+        """Check that the functional groups are correctly typed."""
+        if not all(isinstance(group, T) for group in self.functional_groups):
+            msg = f"All functional groups must be instances of class {T.__name__}."
             raise TypeError(msg)
 
     def functional_groups_name(self: FunctionalGroupSet) -> Sequence[str]:
@@ -97,12 +97,12 @@ class FunctionalGroupSet:
                 unique_params[param.name] = param
         return unique_params
 
-    def generate(self: FunctionalGroupSet, x: Sequence[float]) -> list[dict[str, float]]:
+    def generate(self: FunctionalGroupSet, x: Sequence[float]) -> list[T]:
         """
         Generate a list of dictionaries representing the functional groups with their parameters values.
         The order of the parameters is defined by the `unique_functional_groups_parameters_ordered` method.
         The input `x` should match the order of the parameters returned by that method.
-        It is used by the `model_generator` to generate the model.
+        It is used by the `configuration_generator` to generate the model.
 
         Parameters
         ----------
@@ -111,9 +111,8 @@ class FunctionalGroupSet:
 
         Returns
         -------
-        list[dict[str, float]]
-            A list of dictionaries where each dictionary represents a functional group with its parameters and their
-            corresponding values.
+        list[AbstractFunctionalGroup]
+            A list of functional groups with their parameters and their corresponding values.
 
         """
         keys = list(self.unique_functional_groups_parameters_ordered().keys())
@@ -134,5 +133,5 @@ class FunctionalGroupSet:
                 parameters_values.get(param.name, np.nan) if isinstance(param, Parameter) else param
                 for param in group.parameters
             ]
-            result.append(dict(zip(param_names, param_values, strict=True)))
+            result.append(T(**dict(zip(param_names, param_values, strict=True))))
         return result
