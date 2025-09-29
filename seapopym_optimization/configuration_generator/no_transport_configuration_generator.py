@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from seapopym.configuration.no_transport import (
@@ -53,14 +54,12 @@ class NoTransportConfigurationGenerator:
 
     def generate(
         self,
-        functional_groups: FunctionalGroupSet[NoTransportFunctionalGroup],
+        functional_groups: Sequence[NoTransportFunctionalGroup],
         forcing_parameters: ForcingParameter,
         kernel: KernelParameter | None = None,
     ) -> NoTransportConfiguration:
         """Generate a NoTransportConfiguration with the given functional groups and parameters."""
-        functional_groups_converted = [
-            no_transport_functional_group_unit_generator(fg) for fg in functional_groups.functional_groups
-        ]
+        functional_groups_converted = [no_transport_functional_group_unit_generator(fg) for fg in functional_groups]
         return NoTransportConfiguration(
             forcing=forcing_parameters,
             functional_group=FunctionalGroupParameter(functional_group=functional_groups_converted),

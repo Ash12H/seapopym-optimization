@@ -17,8 +17,9 @@ from seapopym.configuration.no_transport import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from seapopym_optimization.functional_group.acidity_functional_groups import AcidityFunctionalGroup
-    from seapopym_optimization.functional_group.base_functional_group import FunctionalGroupSet
 
 
 def acidity_functional_group_unit_generator(
@@ -57,7 +58,7 @@ class AcidityConfigurationGenerator:
 
     def generate(
         self,
-        functional_groups: FunctionalGroupSet[AcidityFunctionalGroup],
+        functional_groups: Sequence[AcidityFunctionalGroup],
         forcing_parameters: ForcingParameter,
         kernel: KernelParameter | None = None,
     ) -> AcidityConfiguration:

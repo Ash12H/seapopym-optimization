@@ -8,6 +8,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from seapopym.standard.protocols import (
         ConfigurationProtocol,
         ForcingParameterProtocol,
@@ -15,7 +17,7 @@ if TYPE_CHECKING:
         KernelParameterProtocol,
     )
 
-    from seapopym_optimization.functional_group.base_functional_group import AbstractFunctionalGroup, FunctionalGroupSet
+    from seapopym_optimization.functional_group.base_functional_group import AbstractFunctionalGroup
 
 
 class FunctionalGroupUnitGeneratorProtocol[T: AbstractFunctionalGroup, U: FunctionalGroupUnitProtocol](Protocol):
@@ -38,7 +40,7 @@ class ConfigurationGeneratorProtocol[T: AbstractFunctionalGroup, V: Configuratio
 
     def generate(
         self,
-        functional_group_parameters: FunctionalGroupSet[T],
+        functional_group_parameters: Sequence[T],
         forcing_parameters: ForcingParameterProtocol,
         kernel: KernelParameterProtocol | None = None,
     ) -> V:

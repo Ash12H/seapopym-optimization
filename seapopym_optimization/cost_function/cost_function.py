@@ -23,147 +23,45 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from seapopym_optimization.protocols import ObservationProtocol
+    from seapopym.standard.protocols import ForcingParameterProtocol, KernelParameterProtocol
+    from seapopym_optimization.functional_group.base_functional_group import AbstractFunctionalGroup
 
 logger = logging.getLogger(__name__)
 
 
-# -------------------------------------------------------------------------------------------------------------------- #
-# -------------------------------------------------------------------------------------------------------------------- #
-# -------------------------------------------------------------------------------------------------------------------- #
-# -------------------------------------------------------------------------------------------------------------------- #
-# -------------------------------------------------------------------------------------------------------------------- #
-# -------------------------------------------------------------------------------------------------------------------- #
-# -------------------------------------------------------------------------------------------------------------------- #
-# -------------------------------------------------------------------------------------------------------------------- #
-
-
-def aggregate_biomass_by_layer(
-    data: xr.DataArray,
-    position: Sequence[int],
-    name: str,
-    layer_coordinates: Sequence[int],
-    layer_coordinates_name: str = "layer",
-) -> xr.DataArray:
-    """Aggregate biomass data by layer coordinates."""
-    layer_coord = xr.DataArray(
-        np.asarray(position),
-        dims=[CoordinatesLabels.functional_group],
-        coords={CoordinatesLabels.functional_group: data[CoordinatesLabels.functional_group].data},
-        name=layer_coordinates_name,
-        attrs={"axis": "Z"},
-    )
-    return (
-        data.assign_coords({layer_coordinates_name: layer_coord})
-        .groupby(layer_coordinates_name)
-        .sum(dim=CoordinatesLabels.functional_group)
-        .reindex({layer_coordinates_name: layer_coordinates})
-        .fillna(0)
-        .rename(name)
-    )
-
-
-def root_mean_square_error(
-    pred: xr.DataArray,
-    obs: xr.DataArray,
-    *,
-    root: bool,
-    centered: bool,
-    normalized: bool,
-) -> float:
-    """Mean square error applied to xr.DataArray."""
-    if centered:
-        cost = float((((pred - pred.mean()) - (obs - obs.mean())) ** 2).mean())
-    else:
-        cost = float(((obs - pred) ** 2).mean())
-
-    if root:
-        cost = np.sqrt(cost)
-
-    if normalized:
-        cost /= float(obs.std())
-
-    if not np.isfinite(cost):
-        msg = (
-            "Nan value in cost function. The observation cannot be compared to the prediction. Verify that "
-            "coordinates are fitting both in space and time."
-        )
-        raise ValueError(msg)
-
-    return cost
-
-
 @dataclass(kw_only=True)
 class CostFunction:
-    """
-    Generator of the cost function for the 'SeapoPym No Transport' model.
-
-    Attributes
-    ----------
-    functional_groups: Sequence[FunctionalGroupOptimizeNoTransport]
-        The list of functional groups.
-    forcing_parameters : ForcingParameters
-        Forcing parameters.
-    observations : Sequence[Observation]
-        Observations.
-    evaluation_function : callable[xr.DataArray, xr.DataArray] -> xr.DataArray
-        The evaluation function to use for the cost function. Defaults to root mean square error without normalization
-        nor centering. Be careful, the 1st argument is the prediction and the 2nd is the observation.
-
-    """
+    """The cost function generator for SeapoPym models."""
 
     # TODO(Jules): We can gather configuration generators and functional groups in a single object later if needed.
     configuration_generator: ConfigurationGeneratorProtocol
-    functional_groups: FunctionalGroupSet
+    functional_groups: FunctionalGroupSet[AbstractFunctionalGroup]
+    forcing: ForcingParameterProtocol
+    kernel: KernelParameterProtocol
     observations: Sequence[ObservationProtocol]  # Can accept any observation implementation
-    evaluation_function: callable[[xr.DataArray, xr.DataArray], xr.DataArray] = field(
-        default=partial(root_mean_square_error, root=True, centered=False, normalized=False)
-    )
-    resample_prediction: bool = True
 
     def __post_init__(self: CostFunction) -> None:
         """Check types and convert functional groups if necessary."""
-        if not isinstance(self.functional_groups, FunctionalGroupSet):
-            self.functional_groups = FunctionalGroupSet(self.functional_groups)
+        # TODO(Jules): Implement type checking and conversion if necessary
 
-        if not isinstance(self.observations, Sequence):
-            msg = "Observations must be a Sequence of objects implementing ObservationProtocol."
-            raise TypeError(msg)
-
-    def _cost_function(self: CostFunction, args: np.ndarray) -> tuple:
-        model = self.configuration_generator.generate(
-            functional_group_names=self.functional_groups.functional_groups_name(),
+    # NOTE(Jules): Forcing and observations must be passed as parameter of the cost function to be used with Dask
+    # and scattered to workers. They cannot be attributes of the class.
+    def _cost_function(
+        self: CostFunction,
+        args: np.ndarray,
+        forcing: ForcingParameterProtocol,
+        observations: Sequence[ObservationProtocol],
+    ) -> tuple:
+        with self.configuration_generator.generate(
             functional_group_parameters=self.functional_groups.generate(args),
-        )
+            forcing_parameters=forcing,
+            kernel=self.kernel,
+        ) as model:
+            model.run()
 
-        model.run()
-
-        predicted_biomass = model.state[ForcingLabels.biomass]
-
-        biomass_day = aggregate_biomass_by_layer(
-            data=predicted_biomass,
-            position=model.state[ConfigurationLabels.day_layer].data,
-            name=DayCycle.DAY,
-            layer_coordinates=model.state.cf[CoordinatesLabels.Z].data,  # TODO(Jules): layer_coordinates ?
-        )
-        biomass_night = aggregate_biomass_by_layer(
-            data=predicted_biomass,
-            position=model.state[ConfigurationLabels.night_layer].data,
-            name=DayCycle.NIGHT,
-            layer_coordinates=model.state.cf[CoordinatesLabels.Z].data,
-        )
-
-        def evaluate_observation(prediction: xr.DataArray, observation: TimeSeriesObservation) -> xr.DataArray:
-            if self.resample_prediction:
-                prediction = observation.resample_data_by_observation_interval(prediction)
-            return self.evaluation_function(prediction, observation.observation)
-
-        return tuple(
-            evaluate_observation(
-                prediction=(biomass_day if obs.observation_type == DayCycle.DAY else biomass_night),
-                observation=obs,
-            )
-            for obs in self.observations
-        )
+            # TODO(Jules): Finish this
+            for obs in observations:
+                self.
 
     def generate(self: CostFunction) -> Callable[[Sequence[float]], tuple]:
         """Generate the partial cost function used for optimization."""
