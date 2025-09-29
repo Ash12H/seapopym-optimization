@@ -1,16 +1,20 @@
 """
-Stratégies d'évaluation pour l'algorithme génétique.
+Evaluation strategies for genetic algorithm.
 
-Ce module définit différentes stratégies d'évaluation (séquentielle, parallèle, distribuée)
-selon le pattern Strategy, permettant de changer dynamiquement le mode d'exécution
-sans modifier la logique métier de l'algorithme génétique.
+This module defines different evaluation strategies (sequential, parallel, distributed)
+using the Strategy pattern, allowing dynamic mode switching without modifying
+the business logic of the genetic algorithm.
 """
 
 from __future__ import annotations
 
 import logging
+import multiprocessing
 from abc import ABC, abstractmethod
+from concurrent.futures import ProcessPoolExecutor
 from typing import TYPE_CHECKING
+
+from .distribution_manager import DistributionManager
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -20,74 +24,176 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+# TODO(Jules): Is heritance from ABC necessary? Protocol ?
 class EvaluationStrategy(ABC):
     """
-    Interface abstraite pour les stratégies d'évaluation.
+    Abstract interface for evaluation strategies.
 
-    Le pattern Strategy permet de définir une famille d'algorithmes d'évaluation,
-    de les encapsuler et de les rendre interchangeables. Cela permet à l'algorithme
-    génétique de varier indépendamment des clients qui l'utilisent.
+    The Strategy pattern allows defining a family of evaluation algorithms,
+    encapsulating them and making them interchangeable. This allows the genetic
+    algorithm to vary independently from the clients that use it.
     """
 
     @abstractmethod
     def evaluate(self, individuals: Sequence, toolbox: base.Toolbox) -> list:
         """
-        Évalue une liste d'individus.
+        Evaluate a list of individuals.
 
         Parameters
         ----------
         individuals : Sequence
-            Liste des individus à évaluer
+            List of individuals to evaluate
         toolbox : base.Toolbox
-            Toolbox DEAP avec la fonction d'évaluation
+            DEAP toolbox with evaluation function
 
         Returns
         -------
         list
-            Liste des fitness calculées
+            List of calculated fitness values
 
         Raises
         ------
         NotImplementedError
-            Si la méthode n'est pas implémentée dans la classe dérivée
+            If method is not implemented in derived class
 
         """
 
     def __str__(self) -> str:
-        """Représentation string de la stratégie."""
+        """String representation of the strategy."""
         return self.__class__.__name__
 
 
 class SequentialEvaluation(EvaluationStrategy):
     """
-    Stratégie d'évaluation séquentielle classique.
+    Classic sequential evaluation strategy.
 
-    Utilise la fonction map() standard de Python pour évaluer
-    les individus un par un de manière séquentielle.
+    Uses Python's standard map() function to evaluate
+    individuals one by one sequentially.
     """
 
     def evaluate(self, individuals: Sequence, toolbox: base.Toolbox) -> list:
         """
-        Évaluation séquentielle avec map() standard.
+        Sequential evaluation with standard map().
 
         Parameters
         ----------
         individuals : Sequence
-            Liste des individus à évaluer
+            List of individuals to evaluate
         toolbox : base.Toolbox
-            Toolbox DEAP avec la fonction d'évaluation
+            DEAP toolbox with evaluation function
 
         Returns
         -------
         list
-            Liste des fitness calculées
+            List of calculated fitness values
 
         """
-        logger.debug("Évaluation séquentielle de %d individus", len(individuals))
+        logger.debug("Sequential evaluation of %d individuals", len(individuals))
         return list(map(toolbox.evaluate, individuals))
 
 
+class DistributedEvaluation(EvaluationStrategy):
+    """
+    Distributed evaluation strategy using Dask.
+
+    Uses Dask client.map() with pre-distributed data to evaluate
+    individuals across multiple workers efficiently.
+    """
+
+    def __init__(self, distribution_manager: DistributionManager) -> None:
+        """
+        Initialize distributed evaluation strategy.
+
+        Parameters
+        ----------
+        distribution_manager : DistributionManager
+            Manager for handling data distribution
+
+        """
+        if not isinstance(distribution_manager, DistributionManager):
+            msg = "distribution_manager must be a DistributionManager instance"
+            raise TypeError(msg)
+
+        self.distribution_manager = distribution_manager
+
+    def evaluate(self, individuals: Sequence, toolbox: base.Toolbox) -> list:
+        """
+        Distributed evaluation using client.map() with pre-distributed data.
+
+        Parameters
+        ----------
+        individuals : Sequence
+            List of individuals to evaluate
+        toolbox : base.Toolbox
+            DEAP toolbox with evaluation function
+
+        Returns
+        -------
+        list
+            List of calculated fitness values
+
+        """
+        logger.debug("Distributed evaluation of %d individuals", len(individuals))
+
+        # TODO(Jules): toolbox has no cost_function attribute
+        # Create distributed evaluator
+        distributed_evaluator = self.distribution_manager.create_distributed_evaluator(toolbox.cost_function)
+
+        # Convert individuals to parameter lists
+        individual_params = [list(ind) for ind in individuals]
+
+        # Map computation across workers
+        futures = self.distribution_manager.client.map(distributed_evaluator, individual_params)
+
+        # Gather results
+        return self.distribution_manager.client.gather(futures)
 
 
+class ParallelEvaluation(EvaluationStrategy):
+    """
+    Parallel evaluation strategy using multiprocessing.
 
+    Uses ProcessPoolExecutor to evaluate individuals in parallel
+    across multiple CPU cores.
+    """
 
+    def __init__(self, n_jobs: int = -1) -> None:
+        """
+        Initialize parallel evaluation strategy.
+
+        Parameters
+        ----------
+        n_jobs : int, default=-1
+            Number of parallel jobs. If -1, use all available CPUs.
+
+        """
+        if n_jobs == -1:
+            self.n_jobs = multiprocessing.cpu_count()
+        elif n_jobs > 0:
+            self.n_jobs = min(n_jobs, multiprocessing.cpu_count())
+        else:
+            msg = "n_jobs must be positive or -1"
+            raise ValueError(msg)
+
+    def evaluate(self, individuals: Sequence, toolbox: base.Toolbox) -> list:
+        """
+        Parallel evaluation using multiprocessing.
+
+        Parameters
+        ----------
+        individuals : Sequence
+            List of individuals to evaluate
+        toolbox : base.Toolbox
+            DEAP toolbox with evaluation function
+
+        Returns
+        -------
+        list
+            List of calculated fitness values
+
+        """
+        logger.debug("Parallel evaluation of %d individuals using %d workers", len(individuals), self.n_jobs)
+
+        with ProcessPoolExecutor(max_workers=self.n_jobs) as executor:
+            futures = [executor.submit(toolbox.evaluate, ind) for ind in individuals]
+            return [future.result() for future in futures]
