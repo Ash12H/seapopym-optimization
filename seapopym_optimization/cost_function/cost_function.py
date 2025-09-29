@@ -16,73 +16,25 @@ from pandas.tseries.frequencies import to_offset
 from seapopym.standard.labels import ConfigurationLabels, CoordinatesLabels, ForcingLabels
 from seapopym.standard.units import StandardUnitsLabels
 
+from seapopym_optimization.configuration_generator.protocols import ConfigurationGeneratorProtocol
 from seapopym_optimization.functional_group.base_functional_group import FunctionalGroupSet
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from seapopym_optimization.protocols import ModelGeneratorProtocol, ObservationProtocol
+    from seapopym_optimization.protocols import ObservationProtocol
 
 logger = logging.getLogger(__name__)
 
 
-class DayCycle(StrEnum):
-    """Enum to define the day cycle."""
-
-    DAY = "day"
-    NIGHT = "night"
-
-
-@dataclass(kw_only=True)
-class TimeSeriesObservation:
-    """
-    The structure used to store the observations as a time series.
-
-    Meaning that the observation is a time series of biomass values at a given location and layer.
-    """
-
-    name: str
-    observation: xr.DataArray
-    observation_type: DayCycle = DayCycle.DAY
-    observation_interval: pd.offsets.BaseOffset | None = "1D"
-
-    def __post_init__(self: TimeSeriesObservation) -> None:
-        """Check that the observation data is complient with the format of the predicted biomass."""
-        if not isinstance(self.observation, xr.DataArray):
-            msg = "Observation must be an xarray DataArray."
-            raise TypeError(msg)
-
-        for coord in ["T", "X", "Y", "Z"]:
-            if coord not in self.observation.cf.coords:
-                msg = f"Coordinate {coord} must be in the observation Dataset."
-                raise ValueError(msg)
-
-        for coord in [CoordinatesLabels.X, CoordinatesLabels.Y, CoordinatesLabels.Z]:
-            if self.observation.cf.coords[coord].data.size != 1:
-                msg = (
-                    f"Multiple {coord} coordinates found in the observation Dataset. "
-                    "The observation must be a time series with a single X, Y and Z (i.e. Seapodym layer) coordinate."
-                )
-                raise NotImplementedError(msg)
-
-        try:
-            self.observation = self.observation.pint.quantify().pint.to(StandardUnitsLabels.biomass).pint.dequantify()
-        except Exception as e:
-            msg = (
-                f"At least one variable is not convertible to {StandardUnitsLabels.biomass}, which is the unit of the "
-                "predicted biomass."
-            )
-            raise ValueError(msg) from e
-
-        if not isinstance(self.observation_interval, (pd.offsets.BaseOffset, type(None))):
-            self.observation_interval = to_offset(self.observation_interval)
-
-        if self.observation_interval is not None:
-            self.observation = self.resample_data_by_observation_interval(self.observation)
-
-    def resample_data_by_observation_interval(self: TimeSeriesObservation, data: xr.DataArray) -> xr.DataArray:
-        """Resample the data according to the observation type."""
-        return data.cf.resample(T=self.observation_interval).mean().cf.dropna("T", how="all")
+# -------------------------------------------------------------------------------------------------------------------- #
+# -------------------------------------------------------------------------------------------------------------------- #
+# -------------------------------------------------------------------------------------------------------------------- #
+# -------------------------------------------------------------------------------------------------------------------- #
+# -------------------------------------------------------------------------------------------------------------------- #
+# -------------------------------------------------------------------------------------------------------------------- #
+# -------------------------------------------------------------------------------------------------------------------- #
+# -------------------------------------------------------------------------------------------------------------------- #
 
 
 def aggregate_biomass_by_layer(
@@ -159,9 +111,10 @@ class CostFunction:
 
     """
 
-    configuration_generator: ModelGeneratorProtocol
-    observations: Sequence[ObservationProtocol]  # Can accept any observation implementation
+    # TODO(Jules): We can gather configuration generators and functional groups in a single object later if needed.
+    configuration_generator: ConfigurationGeneratorProtocol
     functional_groups: FunctionalGroupSet
+    observations: Sequence[ObservationProtocol]  # Can accept any observation implementation
     evaluation_function: callable[[xr.DataArray, xr.DataArray], xr.DataArray] = field(
         default=partial(root_mean_square_error, root=True, centered=False, normalized=False)
     )
