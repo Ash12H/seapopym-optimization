@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class EvaluationStrategy(ABC):
+class AbstractEvaluationStrategy(ABC):
     """
     Abstract interface for evaluation strategies.
 
@@ -36,7 +36,7 @@ class EvaluationStrategy(ABC):
     """
 
     @abstractmethod
-    def evaluate(self, individuals: Sequence, toolbox: base.Toolbox) -> list:
+    def evaluate(self, individuals: Sequence) -> list:
         """
         Evaluate a list of individuals.
 
@@ -44,8 +44,6 @@ class EvaluationStrategy(ABC):
         ----------
         individuals : Sequence
             List of individuals to evaluate
-        toolbox : base.Toolbox
-            DEAP toolbox with evaluation function
 
         Returns
         -------
@@ -64,7 +62,7 @@ class EvaluationStrategy(ABC):
         return self.__class__.__name__
 
 
-class SequentialEvaluation(EvaluationStrategy):
+class SequentialEvaluation(AbstractEvaluationStrategy):
     """
     Classic sequential evaluation strategy.
 
@@ -84,7 +82,7 @@ class SequentialEvaluation(EvaluationStrategy):
         """
         self.cost_function = cost_function
 
-    def evaluate(self, individuals: Sequence, toolbox: base.Toolbox) -> list:  # noqa: ARG002
+    def evaluate(self, individuals: Sequence) -> list:
         """
         Sequential evaluation with standard map().
 
@@ -92,8 +90,6 @@ class SequentialEvaluation(EvaluationStrategy):
         ----------
         individuals : Sequence
             List of individuals to evaluate
-        toolbox : base.Toolbox
-            DEAP toolbox (not used, kept for interface compatibility)
 
         Returns
         -------
@@ -114,7 +110,7 @@ class SequentialEvaluation(EvaluationStrategy):
         return [evaluator(ind, **params) for ind in individual_params]
 
 
-class DistributedEvaluation(EvaluationStrategy):
+class DistributedEvaluation(AbstractEvaluationStrategy):
     """
     Distributed evaluation strategy using Dask.
 
@@ -183,7 +179,7 @@ class DistributedEvaluation(EvaluationStrategy):
 
         return future.client
 
-    def evaluate(self, individuals: Sequence, toolbox: base.Toolbox) -> list:  # noqa: ARG002
+    def evaluate(self, individuals: Sequence) -> list:
         """
         Distributed evaluation using client.map() with **kwargs parameters.
 
@@ -194,8 +190,6 @@ class DistributedEvaluation(EvaluationStrategy):
         ----------
         individuals : Sequence
             List of individuals to evaluate
-        toolbox : base.Toolbox
-            DEAP toolbox (not used, kept for interface compatibility)
 
         Returns
         -------
@@ -223,7 +217,7 @@ class DistributedEvaluation(EvaluationStrategy):
         return self.client.gather(futures)
 
 
-class ParallelEvaluation(EvaluationStrategy):
+class ParallelEvaluation(AbstractEvaluationStrategy):
     """
     Parallel evaluation strategy using multiprocessing.
 
@@ -253,7 +247,7 @@ class ParallelEvaluation(EvaluationStrategy):
             msg = "n_jobs must be positive or -1"
             raise ValueError(msg)
 
-    def evaluate(self, individuals: Sequence, toolbox: base.Toolbox) -> list:  # noqa: ARG002
+    def evaluate(self, individuals: Sequence) -> list:
         """
         Parallel evaluation using multiprocessing.
 
@@ -261,8 +255,6 @@ class ParallelEvaluation(EvaluationStrategy):
         ----------
         individuals : Sequence
             List of individuals to evaluate
-        toolbox : base.Toolbox
-            DEAP toolbox (not used, kept for interface compatibility)
 
         Returns
         -------

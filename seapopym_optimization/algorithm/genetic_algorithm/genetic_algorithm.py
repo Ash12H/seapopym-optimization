@@ -11,7 +11,10 @@ import numpy as np
 import xarray as xr
 from deap import algorithms, base, tools
 
-from seapopym_optimization.algorithm.genetic_algorithm.evaluation_strategies import SequentialEvaluation
+from seapopym_optimization.algorithm.genetic_algorithm.evaluation_strategies import (
+    AbstractEvaluationStrategy,
+    SequentialEvaluation,
+)
 from seapopym_optimization.algorithm.genetic_algorithm.logbook import OptimizationLog
 
 if TYPE_CHECKING:
@@ -142,7 +145,7 @@ class GeneticAlgorithm:
         The parameters of the genetic algorithm.
     cost_function: CostFunctionProtocol
         The cost function to optimize.
-    evaluation_strategy: EvaluationStrategy
+    evaluation_strategy: AbstractEvaluationStrategy
         Strategy pattern for evaluating individuals.
     constraint: Sequence[ConstraintProtocol] | None
         The constraints to apply to the individuals. If None, no constraints are applied.
@@ -153,7 +156,7 @@ class GeneticAlgorithm:
 
     meta_parameter: GeneticAlgorithmParameters
     cost_function: CostFunctionProtocol
-    evaluation_strategy: object = field(default=None)  # Will default to SequentialEvaluation
+    evaluation_strategy: AbstractEvaluationStrategy
     constraint: Sequence[ConstraintProtocol] | None = None
 
     save: FilePath | WriteBuffer[bytes] | None = None
@@ -162,12 +165,6 @@ class GeneticAlgorithm:
 
     def __post_init__(self: GeneticAlgorithm) -> None:
         """Check parameters et initialise la stratégie d'évaluation."""
-        # Initialiser la stratégie d'évaluation si non fournie
-        if self.evaluation_strategy is None:
-            # Mode séquentiel par défaut
-
-            self.evaluation_strategy = SequentialEvaluation()
-
         # Configuration du logbook
         if self.save is not None:
             self.save = Path(self.save)

@@ -68,6 +68,7 @@ class TimeSeriesScoreProcessor(AbstractScoreProcessor):
         self, prediction: xr.DataArray, observation: TimeSeriesObservation, fg_positions: Sequence[int]
     ) -> xr.DataArray:
         """Pre-process prediction to match observation dimensions."""
+        prediction = prediction.pint.quantify().pint.to(observation.observation.units).pint.dequantify()
         return prediction.sel(
             {
                 CoordinatesLabels.functional_group: fg_positions,

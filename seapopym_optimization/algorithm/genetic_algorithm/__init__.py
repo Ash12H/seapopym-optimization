@@ -1,7 +1,7 @@
 from .genetic_algorithm import GeneticAlgorithm, GeneticAlgorithmParameters
 from .factory import GeneticAlgorithmFactory
 from .evaluation_strategies import (
-    EvaluationStrategy,
+    AbstractEvaluationStrategy,
     SequentialEvaluation,
     DistributedEvaluation,
     ParallelEvaluation,
@@ -25,7 +25,7 @@ __all__ = [
     "GeneticAlgorithmFactory",
 
     # Evaluation strategies
-    "EvaluationStrategy",
+    "AbstractEvaluationStrategy",
     "SequentialEvaluation",
     "DistributedEvaluation",
     "ParallelEvaluation",
