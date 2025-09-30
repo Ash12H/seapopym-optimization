@@ -13,7 +13,8 @@ from typing import TYPE_CHECKING, Any
 from dask.distributed import Future
 
 from seapopym_optimization.configuration_generator import NoTransportConfigurationGenerator
-from seapopym_optimization.cost_function.cost_function import CostFunction, TimeSeriesObservation
+from seapopym_optimization.cost_function import CostFunction
+from seapopym_optimization.observations import TimeSeriesObservation
 from seapopym_optimization.protocols import CostFunctionProtocol
 
 if TYPE_CHECKING:
@@ -21,7 +22,7 @@ if TYPE_CHECKING:
 
     from dask.distributed import Client
 
-    from seapopym_optimization.functional_group.base_functional_group import FunctionalGroupSet
+    from seapopym_optimization.functional_group import FunctionalGroupSet
 
 logger = logging.getLogger(__name__)
 

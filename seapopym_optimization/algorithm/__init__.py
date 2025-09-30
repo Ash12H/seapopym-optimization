@@ -1,15 +1,15 @@
 """Optimization algorithms module."""
 
 from .genetic_algorithm import (
-    OptimizationAlgorithmProtocol,
-    OptimizationParametersProtocol,
     GeneticAlgorithm,
     GeneticAlgorithmParameters,
+    OptimizationAlgorithmProtocol,
+    OptimizationParametersProtocol,
 )
 
 __all__ = [
-    "SimpleGeneticAlgorithm",
-    "SimpleGeneticAlgorithmParameters",
+    "GeneticAlgorithm",
+    "GeneticAlgorithmParameters",
     "OptimizationAlgorithmProtocol",
     "OptimizationParametersProtocol",
 ]

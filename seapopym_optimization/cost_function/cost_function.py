@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from seapopym_optimization.protocols import ObservationProtocol
     from seapopym.standard.protocols import ForcingParameterProtocol, KernelParameterProtocol
     from seapopym_optimization.functional_group.base_functional_group import AbstractFunctionalGroup
+    from seapopym_optimization.cost_function.processor import AbstractScoreProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,7 @@ class CostFunction:
     forcing: ForcingParameterProtocol
     kernel: KernelParameterProtocol
     observations: Sequence[ObservationProtocol]  # Can accept any observation implementation
+    processor: AbstractScoreProcessor  # Processor for computing scores from state and observations
 
     def __post_init__(self: CostFunction) -> None:
         """Check types and convert functional groups if necessary."""
@@ -58,11 +60,13 @@ class CostFunction:
             kernel=self.kernel,
         ) as model:
             model.run()
+            state = model.state
 
-            # TODO(Jules): Finish this
-            for obs in observations:
-                self.
+            # Compute score for each observation
+            scores = tuple(self.processor.process(state, obs) for obs in observations)
+
+        return scores
 
     def generate(self: CostFunction) -> Callable[[Sequence[float]], tuple]:
         """Generate the partial cost function used for optimization."""
-        return partial(self._cost_function)
+        return partial(self._cost_function, forcing=self.forcing, observations=self.observations)

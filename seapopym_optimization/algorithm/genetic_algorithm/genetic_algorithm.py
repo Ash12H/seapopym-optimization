@@ -26,8 +26,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-
-
 def individual_creator(cost_function_weight: tuple[Number]) -> type:
     """
     Create a custom individual class for DEAP genetic algorithms.
@@ -167,6 +165,7 @@ class GeneticAlgorithm:
         if self.evaluation_strategy is None:
             # Mode séquentiel par défaut
             from seapopym_optimization.algorithm.genetic_algorithm.evaluation_strategies import SequentialEvaluation
+
             self.evaluation_strategy = SequentialEvaluation()
 
         # Configuration du logbook
@@ -302,7 +301,6 @@ class GeneticAlgorithm:
             self.update_logbook(logbook)
 
         return last_generation + 1, population
-
 
     def optimize(self: GeneticAlgorithm) -> OptimizationLog:
         """This is the main function. Use it to optimize your model."""
