@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING, Any
 
 from dask.distributed import Client, Future
 
-from seapopym_optimization.algorithm.genetic_algorithm.distribution_manager import DistributionManager
 from seapopym_optimization.algorithm.genetic_algorithm.evaluation_strategies import (
     DistributedEvaluation,
     ParallelEvaluation,
@@ -22,6 +21,7 @@ from seapopym_optimization.algorithm.genetic_algorithm.evaluation_strategies imp
 from seapopym_optimization.algorithm.genetic_algorithm.genetic_algorithm import (
     GeneticAlgorithm,
 )
+from seapopym_optimization.observations import TimeSeriesObservation
 
 if TYPE_CHECKING:
     from seapopym_optimization.algorithm.genetic_algorithm.genetic_algorithm import (
@@ -75,7 +75,7 @@ class GeneticAlgorithmFactory:
         return GeneticAlgorithm(
             meta_parameter=meta_parameter,
             cost_function=cost_function,
-            evaluation_strategy=SequentialEvaluation(),
+            evaluation_strategy=SequentialEvaluation(cost_function),
             **kwargs,
         )
 
@@ -116,7 +116,7 @@ class GeneticAlgorithmFactory:
         return GeneticAlgorithm(
             meta_parameter=meta_parameter,
             cost_function=cost_function,
-            evaluation_strategy=ParallelEvaluation(n_jobs=n_jobs),
+            evaluation_strategy=ParallelEvaluation(cost_function, n_jobs=n_jobs),
             **kwargs,
         )
 
@@ -134,12 +134,15 @@ class GeneticAlgorithmFactory:
         if necessary. Uses Dask client.map() with distributed data to evaluate
         individuals across multiple workers efficiently.
 
+        WARNING: This method modifies the cost_function in-place by replacing
+        forcing and observations data with Dask Futures.
+
         Parameters
         ----------
         meta_parameter : GeneticAlgorithmParameters
             Genetic algorithm parameters
         cost_function : CostFunctionProtocol
-            Cost function to optimize
+            Cost function to optimize (will be modified in-place)
         client : Client
             Dask client for distributed computing
         **kwargs
@@ -154,8 +157,6 @@ class GeneticAlgorithmFactory:
         ------
         TypeError
             If client is not a Dask Client instance
-        ValueError
-            If observations are partially distributed (inconsistent state)
 
         Examples
         --------
@@ -174,38 +175,34 @@ class GeneticAlgorithmFactory:
 
         logger.info("Creating genetic algorithm in distributed mode")
 
-        # Check forcing and distribute if necessary
+        # Check forcing and distribute if necessary (modify in-place)
         if isinstance(cost_function.forcing, Future):
             logger.info("Forcing already distributed (Future detected). Using existing Future.")
-            forcing_future = cost_function.forcing
         else:
             logger.info("Distributing forcing to Dask workers with broadcast=True...")
-            forcing_future = client.scatter(cost_function.forcing, broadcast=True)
+            cost_function.forcing = client.scatter(cost_function.forcing, broadcast=True)
 
-        # Check and distribute observations one by one
-        obs_futures = []
-        for obs in cost_function.observations:
+        # Check and distribute observations one by one (modify in-place)
+        for i, obs in enumerate(cost_function.observations):
             if isinstance(obs.observation, Future):
                 logger.info("Observation '%s' already distributed (Future detected). Using existing Future.", obs.name)
-                obs_futures.append(obs.observation)
             else:
                 logger.info("Distributing observation '%s' to Dask workers with broadcast=True...", obs.name)
                 obs_future = client.scatter(obs.observation, broadcast=True)
-                obs_futures.append(obs_future)
-
-        # Create distributed CostFunction
-        logger.info("Creating distributed CostFunction with Futures...")
-        distributed_cost_function = DistributionManager.create_distributed_cost_function(
-            cost_function, forcing_future, obs_futures
-        )
+                # Replace observation with Future version
+                cost_function.observations[i] = TimeSeriesObservation(
+                    name=obs.name,
+                    observation=obs_future,
+                    observation_type=obs.observation_type,
+                )
 
         # Create distributed evaluation strategy
-        evaluation_strategy = DistributedEvaluation(distributed_cost_function)
+        evaluation_strategy = DistributedEvaluation(cost_function)
 
         # Create and return GA instance
         return GeneticAlgorithm(
             meta_parameter=meta_parameter,
-            cost_function=distributed_cost_function,
+            cost_function=cost_function,
             evaluation_strategy=evaluation_strategy,
             **kwargs,
         )

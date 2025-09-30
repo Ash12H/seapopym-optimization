@@ -26,31 +26,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def _evaluate_with_params(evaluator, args, params_dict):
-    """
-    Helper function for distributed evaluation.
-
-    This function is defined at module level to allow proper serialization by Dask.
-    It unpacks the params_dict and calls the evaluator with resolved Futures.
-
-    Parameters
-    ----------
-    evaluator : Callable
-        The bound evaluation method (already has self captured)
-    args : list or array
-        Individual parameters to evaluate
-    params_dict : dict
-        Dictionary containing forcing and observations (Futures are resolved by Dask)
-
-    Returns
-    -------
-    tuple
-        Fitness values
-
-    """
-    return evaluator(args, **params_dict)
-
-
 class EvaluationStrategy(ABC):
     """
     Abstract interface for evaluation strategies.
@@ -97,7 +72,19 @@ class SequentialEvaluation(EvaluationStrategy):
     individuals one by one sequentially.
     """
 
-    def evaluate(self, individuals: Sequence, toolbox: base.Toolbox) -> list:
+    def __init__(self, cost_function: CostFunction) -> None:
+        """
+        Initialize sequential evaluation strategy.
+
+        Parameters
+        ----------
+        cost_function : CostFunction
+            Cost function to evaluate individuals
+
+        """
+        self.cost_function = cost_function
+
+    def evaluate(self, individuals: Sequence, toolbox: base.Toolbox) -> list:  # noqa: ARG002
         """
         Sequential evaluation with standard map().
 
@@ -106,7 +93,7 @@ class SequentialEvaluation(EvaluationStrategy):
         individuals : Sequence
             List of individuals to evaluate
         toolbox : base.Toolbox
-            DEAP toolbox with evaluation function
+            DEAP toolbox (not used, kept for interface compatibility)
 
         Returns
         -------
@@ -115,7 +102,16 @@ class SequentialEvaluation(EvaluationStrategy):
 
         """
         logger.debug("Sequential evaluation of %d individuals", len(individuals))
-        return list(map(toolbox.evaluate, individuals))
+
+        # Get evaluator and parameters from cost function
+        evaluator = self.cost_function.get_evaluator()
+        params = self.cost_function.get_distributed_parameters()
+
+        # Convert individuals to parameter lists
+        individual_params = [list(ind) for ind in individuals]
+
+        # Sequential map with unpacked parameters
+        return [evaluator(ind, **params) for ind in individual_params]
 
 
 class DistributedEvaluation(EvaluationStrategy):
@@ -189,10 +185,10 @@ class DistributedEvaluation(EvaluationStrategy):
 
     def evaluate(self, individuals: Sequence, toolbox: base.Toolbox) -> list:  # noqa: ARG002
         """
-        Distributed evaluation using client.map() with dictionary parameters.
+        Distributed evaluation using client.map() with **kwargs parameters.
 
-        Dask automatically resolves all Futures contained in the dictionary
-        when it's passed as an argument to the mapped function.
+        Dask automatically resolves all Futures contained in kwargs
+        when they are passed to the mapped function.
 
         Parameters
         ----------
@@ -216,17 +212,11 @@ class DistributedEvaluation(EvaluationStrategy):
         # Convert individuals to parameter lists
         individual_params = [list(ind) for ind in individuals]
 
-        # Create lists with repeated values for each individual
-        # Since broadcast=True was used in scatter, the Future is already on all workers
-        evaluator_list = [evaluator] * len(individual_params)
-        params_list = [distributed_params] * len(individual_params)
-
-        # Map with dict as argument - Dask resolves all Futures inside it
+        # Map with **kwargs - Dask resolves all Futures inside distributed_params
         futures = self.client.map(
-            _evaluate_with_params,
-            evaluator_list,      # Same evaluator (bound method) for all
-            individual_params,   # Different for each individual
-            params_list,         # Same dict for all (Futures resolved by Dask)
+            evaluator,
+            individual_params,
+            **distributed_params,  # Dask automatically resolves Futures in kwargs
         )
 
         # Gather results
@@ -241,16 +231,20 @@ class ParallelEvaluation(EvaluationStrategy):
     across multiple CPU cores.
     """
 
-    def __init__(self, n_jobs: int = -1) -> None:
+    def __init__(self, cost_function: CostFunction, n_jobs: int = -1) -> None:
         """
         Initialize parallel evaluation strategy.
 
         Parameters
         ----------
+        cost_function : CostFunction
+            Cost function to evaluate individuals
         n_jobs : int, default=-1
             Number of parallel jobs. If -1, use all available CPUs.
 
         """
+        self.cost_function = cost_function
+
         if n_jobs == -1:
             self.n_jobs = multiprocessing.cpu_count()
         elif n_jobs > 0:
@@ -259,7 +253,7 @@ class ParallelEvaluation(EvaluationStrategy):
             msg = "n_jobs must be positive or -1"
             raise ValueError(msg)
 
-    def evaluate(self, individuals: Sequence, toolbox: base.Toolbox) -> list:
+    def evaluate(self, individuals: Sequence, toolbox: base.Toolbox) -> list:  # noqa: ARG002
         """
         Parallel evaluation using multiprocessing.
 
@@ -268,7 +262,7 @@ class ParallelEvaluation(EvaluationStrategy):
         individuals : Sequence
             List of individuals to evaluate
         toolbox : base.Toolbox
-            DEAP toolbox with evaluation function
+            DEAP toolbox (not used, kept for interface compatibility)
 
         Returns
         -------
@@ -278,6 +272,14 @@ class ParallelEvaluation(EvaluationStrategy):
         """
         logger.debug("Parallel evaluation of %d individuals using %d workers", len(individuals), self.n_jobs)
 
+        # Get evaluator and parameters from cost function
+        evaluator = self.cost_function.get_evaluator()
+        params = self.cost_function.get_distributed_parameters()
+
+        # Convert individuals to parameter lists
+        individual_params = [list(ind) for ind in individuals]
+
+        # Parallel map with executor
         with ProcessPoolExecutor(max_workers=self.n_jobs) as executor:
-            futures = [executor.submit(toolbox.evaluate, ind) for ind in individuals]
+            futures = [executor.submit(evaluator, ind, **params) for ind in individual_params]
             return [future.result() for future in futures]
