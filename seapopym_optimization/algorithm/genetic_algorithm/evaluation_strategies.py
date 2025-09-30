@@ -14,17 +14,18 @@ from abc import ABC, abstractmethod
 from concurrent.futures import ProcessPoolExecutor
 from typing import TYPE_CHECKING
 
-from .distribution_manager import DistributionManager
+from dask.distributed import Future
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from deap import base
 
+    from seapopym_optimization.cost_function import CostFunction
+
 logger = logging.getLogger(__name__)
 
 
-# TODO(Jules): Is heritance from ABC necessary? Protocol ?
 class EvaluationStrategy(ABC):
     """
     Abstract interface for evaluation strategies.
@@ -96,36 +97,49 @@ class DistributedEvaluation(EvaluationStrategy):
     """
     Distributed evaluation strategy using Dask.
 
-    Uses Dask client.map() with pre-distributed data to evaluate
+    Uses Dask client.map() with a distributed CostFunction to evaluate
     individuals across multiple workers efficiently.
     """
 
-    def __init__(self, distribution_manager: DistributionManager) -> None:
+    def __init__(self, cost_function: CostFunction) -> None:
         """
         Initialize distributed evaluation strategy.
 
         Parameters
         ----------
-        distribution_manager : DistributionManager
-            Manager for handling data distribution
+        cost_function : CostFunction
+            Cost function with distributed data (Futures)
+
+        Raises
+        ------
+        TypeError
+            If cost function data is not distributed (not Futures)
 
         """
-        if not isinstance(distribution_manager, DistributionManager):
-            msg = "distribution_manager must be a DistributionManager instance"
+        # Verify that forcing is distributed
+        if not isinstance(cost_function.forcing, Future):
+            msg = "CostFunction.forcing must be a Dask Future for distributed evaluation"
             raise TypeError(msg)
 
-        self.distribution_manager = distribution_manager
+        # Verify that all observations are distributed
+        if not all(isinstance(obs, Future) for obs in cost_function.observations):
+            msg = "All observations must be Dask Futures for distributed evaluation"
+            raise TypeError(msg)
 
-    def evaluate(self, individuals: Sequence, toolbox: base.Toolbox) -> list:
+        self.cost_function = cost_function
+        # Extract client from one of the Futures
+        self.client = cost_function.forcing.client
+
+    def evaluate(self, individuals: Sequence, toolbox: base.Toolbox) -> list:  # noqa: ARG002
         """
-        Distributed evaluation using client.map() with pre-distributed data.
+        Distributed evaluation using client.map() with distributed CostFunction.
 
         Parameters
         ----------
         individuals : Sequence
             List of individuals to evaluate
         toolbox : base.Toolbox
-            DEAP toolbox with evaluation function
+            DEAP toolbox (not used, kept for interface compatibility)
 
         Returns
         -------
@@ -135,18 +149,18 @@ class DistributedEvaluation(EvaluationStrategy):
         """
         logger.debug("Distributed evaluation of %d individuals", len(individuals))
 
-        # TODO(Jules): toolbox has no cost_function attribute
-        # Create distributed evaluator
-        distributed_evaluator = self.distribution_manager.create_distributed_evaluator(toolbox.cost_function)
+        # Generate evaluator from distributed cost function
+        evaluator = self.cost_function.generate()
 
         # Convert individuals to parameter lists
         individual_params = [list(ind) for ind in individuals]
 
         # Map computation across workers
-        futures = self.distribution_manager.client.map(distributed_evaluator, individual_params)
+        # Dask automatically resolves Futures when evaluator is called on workers
+        futures = self.client.map(evaluator, individual_params)
 
         # Gather results
-        return self.distribution_manager.client.gather(futures)
+        return self.client.gather(futures)
 
 
 class ParallelEvaluation(EvaluationStrategy):

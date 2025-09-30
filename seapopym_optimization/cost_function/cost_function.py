@@ -3,29 +3,20 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Sequence
-from dataclasses import dataclass, field
-from enum import StrEnum
+from dataclasses import dataclass
 from functools import partial
 from typing import TYPE_CHECKING
 
-import numpy as np
-import pandas as pd
-import xarray as xr
-from pandas.tseries.frequencies import to_offset
-from seapopym.standard.labels import ConfigurationLabels, CoordinatesLabels, ForcingLabels
-from seapopym.standard.units import StandardUnitsLabels
-
-from seapopym_optimization.configuration_generator.protocols import ConfigurationGeneratorProtocol
-from seapopym_optimization.functional_group.base_functional_group import FunctionalGroupSet
-
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Sequence
 
-    from seapopym_optimization.protocols import ObservationProtocol
+    import numpy as np
     from seapopym.standard.protocols import ForcingParameterProtocol, KernelParameterProtocol
-    from seapopym_optimization.functional_group.base_functional_group import AbstractFunctionalGroup
+
+    from seapopym_optimization.configuration_generator.protocols import ConfigurationGeneratorProtocol
     from seapopym_optimization.cost_function.processor import AbstractScoreProcessor
+    from seapopym_optimization.functional_group.base_functional_group import AbstractFunctionalGroup, FunctionalGroupSet
+    from seapopym_optimization.protocols import ObservationProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -54,18 +45,19 @@ class CostFunction:
         forcing: ForcingParameterProtocol,
         observations: Sequence[ObservationProtocol],
     ) -> tuple:
-        with self.configuration_generator.generate(
+        configuration = self.configuration_generator.generate(
             functional_group_parameters=self.functional_groups.generate(args),
             forcing_parameters=forcing,
             kernel=self.kernel,
-        ) as model:
+        )
+
+        # Create model from configuration and run it
+        with self.configuration_generator.model_class.from_configuration(configuration) as model:
             model.run()
             state = model.state
 
             # Compute score for each observation
-            scores = tuple(self.processor.process(state, obs) for obs in observations)
-
-        return scores
+            return tuple(self.processor.process(state, obs) for obs in observations)
 
     def generate(self: CostFunction) -> Callable[[Sequence[float]], tuple]:
         """Generate the partial cost function used for optimization."""

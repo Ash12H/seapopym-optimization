@@ -76,8 +76,8 @@ class FunctionalGroupSet[T: AbstractFunctionalGroup]:
 
     def __post_init__(self: FunctionalGroupSet) -> None:
         """Check that the functional groups are correctly typed."""
-        if not all(isinstance(group, T) for group in self.functional_groups):
-            msg = f"All functional groups must be instances of class {T.__name__}."
+        if not all(isinstance(group, AbstractFunctionalGroup) for group in self.functional_groups):
+            msg = "All functional groups must be instances of AbstractFunctionalGroup."
             raise TypeError(msg)
 
     def functional_groups_name(self: FunctionalGroupSet) -> Sequence[str]:
@@ -133,5 +133,9 @@ class FunctionalGroupSet[T: AbstractFunctionalGroup]:
                 parameters_values.get(param.name, np.nan) if isinstance(param, Parameter) else param
                 for param in group.parameters
             ]
-            result.append(T(**dict(zip(param_names, param_values, strict=True))))
+            # Create dictionary with updated parameter values and preserve the name
+            group_dict = dict(zip(param_names, param_values, strict=True))
+            group_dict["name"] = group.name
+            # Use type(group) instead of T to instantiate the concrete class
+            result.append(type(group)(**group_dict))
         return result

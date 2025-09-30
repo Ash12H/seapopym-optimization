@@ -15,6 +15,7 @@ if TYPE_CHECKING:
         ForcingParameterProtocol,
         FunctionalGroupUnitProtocol,
         KernelParameterProtocol,
+        ModelProtocol,
     )
 
     from seapopym_optimization.functional_group.base_functional_group import AbstractFunctionalGroup
@@ -37,6 +38,8 @@ class ConfigurationGeneratorProtocol[T: AbstractFunctionalGroup, V: Configuratio
     SeapoPym format, and then generates a SeapoPym configuration (type V) using the generated functional groups
     along with forcing and kernel parameters.
     """
+
+    model_class: type[ModelProtocol]
 
     def generate(
         self,

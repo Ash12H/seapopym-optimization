@@ -11,6 +11,7 @@ import numpy as np
 import xarray as xr
 from deap import algorithms, base, tools
 
+from seapopym_optimization.algorithm.genetic_algorithm.evaluation_strategies import SequentialEvaluation
 from seapopym_optimization.algorithm.genetic_algorithm.logbook import OptimizationLog
 
 if TYPE_CHECKING:
@@ -164,7 +165,6 @@ class GeneticAlgorithm:
         # Initialiser la stratégie d'évaluation si non fournie
         if self.evaluation_strategy is None:
             # Mode séquentiel par défaut
-            from seapopym_optimization.algorithm.genetic_algorithm.evaluation_strategies import SequentialEvaluation
 
             self.evaluation_strategy = SequentialEvaluation()
 

@@ -9,9 +9,9 @@ hiding configuration complexity for business users.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from dask.distributed import Client
+from dask.distributed import Client, Future
 
 from seapopym_optimization.algorithm.genetic_algorithm.distribution_manager import DistributionManager
 from seapopym_optimization.algorithm.genetic_algorithm.evaluation_strategies import (
@@ -42,7 +42,7 @@ class GeneticAlgorithmFactory:
 
     @staticmethod
     def create_sequential(
-        meta_parameter: GeneticAlgorithmParameters, cost_function: CostFunctionProtocol, **kwargs
+        meta_parameter: GeneticAlgorithmParameters, cost_function: CostFunctionProtocol, **kwargs: Any
     ) -> GeneticAlgorithm:
         """
         Create a GA in sequential mode.
@@ -81,7 +81,7 @@ class GeneticAlgorithmFactory:
 
     @staticmethod
     def create_parallel(
-        meta_parameter: GeneticAlgorithmParameters, cost_function: CostFunctionProtocol, n_jobs: int = -1, **kwargs
+        meta_parameter: GeneticAlgorithmParameters, cost_function: CostFunctionProtocol, n_jobs: int = -1, **kwargs: Any
     ) -> GeneticAlgorithm:
         """
         Create a GA in parallel mode using multiprocessing.
@@ -125,14 +125,13 @@ class GeneticAlgorithmFactory:
         meta_parameter: GeneticAlgorithmParameters,
         cost_function: CostFunctionProtocol,
         client: Client,
-        *,
-        auto_distribute: bool = True,
-        **kwargs: dict,
-    ) -> tuple[GeneticAlgorithm, DistributionManager]:
+        **kwargs: Any,
+    ) -> GeneticAlgorithm:
         """
         Create a GA in distributed mode with Dask.
 
-        Uses Dask client.map() with distributed data to evaluate
+        Automatically detects if data is already distributed (Futures) and distributes
+        if necessary. Uses Dask client.map() with distributed data to evaluate
         individuals across multiple workers efficiently.
 
         Parameters
@@ -143,30 +142,30 @@ class GeneticAlgorithmFactory:
             Cost function to optimize
         client : Client
             Dask client for distributed computing
-        auto_distribute : bool, default=True
-            If True, automatically distribute heavy data
         **kwargs
             Additional arguments for GeneticAlgorithm
 
         Returns
         -------
-        tuple[GeneticAlgorithm, DistributionManager]
-            GA instance and distribution manager
+        GeneticAlgorithm
+            GA instance configured for distributed execution
 
         Raises
         ------
-        ImportError
-            If Dask is not available
+        TypeError
+            If client is not a Dask Client instance
+        ValueError
+            If observations are partially distributed (inconsistent state)
 
         Examples
         --------
         >>> from dask.distributed import Client
         >>> client = Client()
-        >>> ga, dist_manager = GeneticAlgorithmFactory.create_distributed(
-        ...     meta_params, cost_function, client, auto_distribute=True
+        >>> ga = GeneticAlgorithmFactory.create_distributed(
+        ...     meta_params, cost_function, client
         ... )
         >>> results = ga.optimize()
-        >>> dist_manager.cleanup()
+        >>> client.close()
 
         """
         if not isinstance(client, Client):
@@ -175,24 +174,38 @@ class GeneticAlgorithmFactory:
 
         logger.info("Creating genetic algorithm in distributed mode")
 
-        # Create distribution manager
-        dist_manager = DistributionManager(client)
+        # Check forcing and distribute if necessary
+        if isinstance(cost_function.forcing, Future):
+            logger.info("Forcing already distributed (Future detected). Using existing Future.")
+            forcing_future = cost_function.forcing
+        else:
+            logger.info("Distributing forcing to Dask workers with broadcast=True...")
+            forcing_future = client.scatter(cost_function.forcing, broadcast=True)
 
-        if auto_distribute:
-            # Automatically distribute heavy data
-            logger.info("Auto-distributing data...")
-            dist_manager.distribute_forcing(cost_function.configuration_generator.forcing_parameters)
-            dist_manager.distribute_observations(cost_function.observations)
+        # Check and distribute observations one by one
+        obs_futures = []
+        for obs in cost_function.observations:
+            if isinstance(obs.observation, Future):
+                logger.info("Observation '%s' already distributed (Future detected). Using existing Future.", obs.name)
+                obs_futures.append(obs.observation)
+            else:
+                logger.info("Distributing observation '%s' to Dask workers with broadcast=True...", obs.name)
+                obs_future = client.scatter(obs.observation, broadcast=True)
+                obs_futures.append(obs_future)
+
+        # Create distributed CostFunction
+        logger.info("Creating distributed CostFunction with Futures...")
+        distributed_cost_function = DistributionManager.create_distributed_cost_function(
+            cost_function, forcing_future, obs_futures
+        )
 
         # Create distributed evaluation strategy
-        evaluation_strategy = DistributedEvaluation(dist_manager)
+        evaluation_strategy = DistributedEvaluation(distributed_cost_function)
 
-        # Create GA instance
-        ga = GeneticAlgorithm(
+        # Create and return GA instance
+        return GeneticAlgorithm(
             meta_parameter=meta_parameter,
-            cost_function=cost_function,
+            cost_function=distributed_cost_function,
             evaluation_strategy=evaluation_strategy,
             **kwargs,
         )
-
-        return ga, dist_manager

@@ -24,6 +24,15 @@ class TimeSeriesObservation(Observation):
         """Check that the observation data is compliant with the format of the predicted biomass."""
         super().__post_init__()
 
+        # Skip additional validation for Dask Futures (already checked in parent)
+        try:
+            from dask.distributed import Future
+
+            if isinstance(self.observation, Future):
+                return
+        except ImportError:
+            pass
+
         for coord in [CoordinatesLabels.X, CoordinatesLabels.Y, CoordinatesLabels.Z]:
             if self.observation.cf.coords[coord].data.size != 1:
                 msg = (

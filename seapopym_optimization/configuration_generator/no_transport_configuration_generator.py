@@ -13,6 +13,7 @@ from seapopym.configuration.no_transport import (
     MigratoryTypeParameter,
     NoTransportConfiguration,
 )
+from seapopym.model import NoTransportModel
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -51,6 +52,8 @@ class NoTransportConfigurationGenerator:
 
     Based on `ConfigurationGeneratorProtocol`.
     """
+
+    model_class = NoTransportModel
 
     def generate(
         self,

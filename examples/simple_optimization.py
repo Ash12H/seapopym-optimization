@@ -10,18 +10,17 @@ import pandas as pd
 import xarray as xr
 from dask.distributed import Client
 from seapopym.configuration.no_transport import ForcingParameter, ForcingUnit, KernelParameter
+from seapopym.model import NoTransportModel
 
-from seapopym_optimization.algorithm.genetic_algorithm.genetic_algorithm import (
-    GeneticAlgorithm,
-    GeneticAlgorithmParameters,
-)
+from seapopym_optimization.algorithm.genetic_algorithm.factory import GeneticAlgorithmFactory
+from seapopym_optimization.algorithm.genetic_algorithm.genetic_algorithm import GeneticAlgorithmParameters
 from seapopym_optimization.algorithm.genetic_algorithm.logbook import OptimizationLog
 from seapopym_optimization.configuration_generator.no_transport_configuration_generator import (
     NoTransportConfigurationGenerator,
 )
+from seapopym_optimization.cost_function import TimeSeriesScoreProcessor
 from seapopym_optimization.cost_function.cost_function import CostFunction
 from seapopym_optimization.cost_function.metric import rmse_comparator
-from seapopym_optimization.cost_function.processor import TimeSeriesScoreProcessor
 from seapopym_optimization.functional_group import NoTransportFunctionalGroup, Parameter
 from seapopym_optimization.functional_group.base_functional_group import FunctionalGroupSet
 from seapopym_optimization.functional_group.parameter_initialization import random_uniform_exclusive
@@ -132,7 +131,7 @@ def main() -> None:
         kernel=KernelParameter(),
     )
 
-    with initial_config as initial_model:
+    with NoTransportModel.from_configuration(initial_config) as initial_model:
         initial_model.run()
         observed_biomass = initial_model.state.biomass
 
@@ -159,22 +158,17 @@ def main() -> None:
             name="Zooplankton",
             day_layer=0,
             night_layer=0,
-            energy_transfert=Parameter(
-                "D1N1_energy_transfert", 0.001, 0.3, init_method=random_uniform_exclusive
-            ),
+            energy_transfert=Parameter("D1N1_energy_transfert", 0.001, 0.3, init_method=random_uniform_exclusive),
             gamma_tr=Parameter("D1N1_gamma_tr", -0.3, -0.001, init_method=random_uniform_exclusive),
             tr_0=Parameter("D1N1_tr_0", 0, 30, init_method=random_uniform_exclusive),
             gamma_lambda_temperature=Parameter(
                 "D1N1_gamma_lambda_temperature", 1 / 300, 1, init_method=random_uniform_exclusive
             ),
-            lambda_temperature_0=Parameter(
-                "D1N1_lambda_temperature_0", 0, 0.3, init_method=random_uniform_exclusive
-            ),
+            lambda_temperature_0=Parameter("D1N1_lambda_temperature_0", 0, 0.3, init_method=random_uniform_exclusive),
         ),
     ]
 
     fg_set = FunctionalGroupSet(functional_groups=functional_groups)
-    print(f"Number of parameters to optimize: {fg_set.number_of_parameters}")
 
     # ======================
     # 4. Create cost function with processor
@@ -202,7 +196,6 @@ def main() -> None:
     print("\n=== Initializing optimization logbook ===")
 
     logbook = OptimizationLog.from_sobol_samples(fg_set, sample_number=2, fitness_names=["Zooplankton Biomass"])
-    print(f"Logbook initialized with {len(logbook)} individuals")
 
     # ======================
     # 6. Configure and run genetic algorithm
@@ -229,16 +222,14 @@ def main() -> None:
     client = Client()
     print(f"Dask dashboard available at: {client.dashboard_link}")
 
-    genetic_algorithm = GeneticAlgorithm(
+    # Create distributed genetic algorithm
+    # Factory automatically detects and distributes data if needed
+    genetic_algorithm = GeneticAlgorithmFactory.create_distributed(
         meta_parameter=metaparam,
         cost_function=cost_function,
         client=client,
         logbook=logbook,
     )
-
-    # Distribute data to workers
-    print("\n=== Distributing data to Dask workers ===")
-    genetic_algorithm.distribute_data()
 
     # ======================
     # 7. Run optimization
