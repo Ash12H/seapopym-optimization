@@ -11,10 +11,6 @@ import numpy as np
 import xarray as xr
 from deap import algorithms, base, tools
 
-from seapopym_optimization.algorithm.genetic_algorithm.evaluation_strategies import (
-    AbstractEvaluationStrategy,
-    SequentialEvaluation,
-)
 from seapopym_optimization.algorithm.genetic_algorithm.logbook import OptimizationLog
 
 if TYPE_CHECKING:
@@ -23,6 +19,7 @@ if TYPE_CHECKING:
 
     from pandas._typing import FilePath, WriteBuffer
 
+    from seapopym_optimization.algorithm.genetic_algorithm.evaluation_strategies import AbstractEvaluationStrategy
     from seapopym_optimization.functional_group.no_transport_functional_groups import Parameter
     from seapopym_optimization.protocols import ConstraintProtocol, CostFunctionProtocol
 
@@ -213,7 +210,7 @@ class GeneticAlgorithm:
 
             if invalid_ind:
                 # Délégation à la stratégie d'évaluation
-                fitnesses = self.evaluation_strategy.evaluate(invalid_ind, self.toolbox)
+                fitnesses = self.evaluation_strategy.evaluate(invalid_ind)
 
                 for ind, fit in zip(invalid_ind, fitnesses, strict=True):
                     ind.fitness.values = fit
@@ -229,8 +226,9 @@ class GeneticAlgorithm:
         )
         fitness_names = [obs.name for obs in self.cost_function.observations]
 
-        # Extract fitness values
-        fitness_values = [tuple(ind.fitness.values) for ind in individuals]
+        # Extract both raw and weighted fitness values from DEAP
+        raw_fitness_values = [tuple(ind.fitness.values) for ind in individuals]
+        weighted_fitness_values = [tuple(ind.fitness.wvalues) for ind in individuals]
 
         # Create OptimizationLog
         logbook = OptimizationLog.from_individual(
@@ -241,8 +239,8 @@ class GeneticAlgorithm:
             fitness_names=fitness_names,
         )
 
-        # Update fitness values in the logbook
-        logbook.update_fitness(generation, list(range(len(individuals))), fitness_values)
+        # Update fitness values in the logbook (both raw and weighted)
+        logbook.update_fitness(generation, list(range(len(individuals))), raw_fitness_values, weighted_fitness_values)
 
         return logbook
 

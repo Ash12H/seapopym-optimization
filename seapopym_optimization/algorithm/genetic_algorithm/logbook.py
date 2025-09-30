@@ -84,7 +84,7 @@ class OptimizationLog:
             name="parameters",
         )
 
-        # Create empty fitness arrays
+        # Create empty fitness arrays (raw values)
         fitness = xr.DataArray(
             np.full((1, n_individuals, n_objectives), np.nan),
             dims=["generation", "individual", "objective"],
@@ -94,6 +94,18 @@ class OptimizationLog:
                 "objective": fitness_names,
             },
             name="fitness",
+        )
+
+        # Create weighted fitness objectives array (weighted by DEAP)
+        weighted_fitness_objectives = xr.DataArray(
+            np.full((1, n_individuals, n_objectives), np.nan),
+            dims=["generation", "individual", "objective"],
+            coords={
+                "generation": [generation],
+                "individual": range(n_individuals),
+                "objective": fitness_names,
+            },
+            name="weighted_fitness_objectives",
         )
 
         weighted_fitness = xr.DataArray(
@@ -121,6 +133,7 @@ class OptimizationLog:
             {
                 "parameters": parameters,
                 "fitness": fitness,
+                "weighted_fitness_objectives": weighted_fitness_objectives,
                 "weighted_fitness": weighted_fitness,
                 "is_from_previous": is_from_previous,
             },
@@ -133,20 +146,43 @@ class OptimizationLog:
         self,
         generation: int,
         individual_indices: list[int],
-        fitness_values: list[tuple],
+        raw_fitness_values: list[tuple],
+        weighted_fitness_values: list[tuple],
     ) -> None:
-        """Update fitness values for specific individuals."""
-        for ind_idx, fitness_tuple in zip(individual_indices, fitness_values, strict=True):
-            # Update multi-objective fitness
-            for obj_idx, fitness_val in enumerate(fitness_tuple):
+        """
+        Update fitness values for specific individuals.
+
+        Parameters
+        ----------
+        generation : int
+            Generation number
+        individual_indices : list[int]
+            Indices of individuals to update
+        raw_fitness_values : list[tuple]
+            Raw fitness values (ind.fitness.values) without weights
+        weighted_fitness_values : list[tuple]
+            Weighted fitness values (ind.fitness.wvalues) with DEAP weights applied
+        """
+        for ind_idx, raw_tuple, weighted_tuple in zip(
+            individual_indices, raw_fitness_values, weighted_fitness_values, strict=True
+        ):
+            # Update raw fitness (without weights)
+            for obj_idx, fitness_val in enumerate(raw_tuple):
                 obj_name = self.objective_names[obj_idx]
                 self.dataset["fitness"].loc[
                     {"generation": generation, "individual": ind_idx, "objective": obj_name}
                 ] = fitness_val
 
-            # Update weighted fitness (simple sum for now)
-            weighted_val = sum(fitness_tuple) if not any(np.isnan(fitness_tuple)) else np.nan
-            self.dataset["weighted_fitness"].loc[{"generation": generation, "individual": ind_idx}] = weighted_val
+            # Update weighted fitness objectives (with DEAP weights)
+            for obj_idx, weighted_val in enumerate(weighted_tuple):
+                obj_name = self.objective_names[obj_idx]
+                self.dataset["weighted_fitness_objectives"].loc[
+                    {"generation": generation, "individual": ind_idx, "objective": obj_name}
+                ] = weighted_val
+
+            # Update total weighted fitness (sum of weighted objectives)
+            total_weighted = sum(weighted_tuple) if not any(np.isnan(weighted_tuple)) else np.nan
+            self.dataset["weighted_fitness"].loc[{"generation": generation, "individual": ind_idx}] = total_weighted
 
     @property
     def objective_names(self) -> list[str]:

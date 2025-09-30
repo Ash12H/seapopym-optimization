@@ -69,14 +69,17 @@ class TimeSeriesScoreProcessor(AbstractScoreProcessor):
     ) -> xr.DataArray:
         """Pre-process prediction to match observation dimensions."""
         prediction = prediction.pint.quantify().pint.to(observation.observation.units).pint.dequantify()
-        return prediction.sel(
+        selected = prediction.sel(
             {
                 CoordinatesLabels.functional_group: fg_positions,
                 CoordinatesLabels.time: observation.observation[CoordinatesLabels.time],
                 CoordinatesLabels.X: observation.observation[CoordinatesLabels.X],
                 CoordinatesLabels.Y: observation.observation[CoordinatesLabels.Y],
             },
-        ).sum(CoordinatesLabels.time)
+        )
+        # Sum over functional_group dimension, squeeze size-1 dimensions
+        summed = selected.sum(CoordinatesLabels.functional_group)
+        return summed.squeeze()
 
     def process(self, state: SeapopymState, observation: TimeSeriesObservation) -> Number:
         """Compare prediction with observation by applying the comparator. Can pre-process data if needed."""
@@ -89,4 +92,4 @@ class TimeSeriesScoreProcessor(AbstractScoreProcessor):
             raise ValueError(msg)
 
         prediction = self._pre_process_prediction(state[ForcingLabels.biomass], observation, positions)
-        return self.comparator(prediction.squeeze(), observation)
+        return self.comparator(prediction, observation)
