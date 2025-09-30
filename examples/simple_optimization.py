@@ -40,7 +40,7 @@ def main() -> None:
     # ======================
     print("\n=== Generating synthetic forcing data ===")
     nb_days_by_year = 365
-    nb_years = 2
+    nb_years = 20
 
     # Temperature: sinusoidal pattern
     temperature = xr.DataArray(

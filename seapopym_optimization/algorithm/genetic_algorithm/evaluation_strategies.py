@@ -26,6 +26,31 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _evaluate_with_params(evaluator, args, params_dict):
+    """
+    Helper function for distributed evaluation.
+
+    This function is defined at module level to allow proper serialization by Dask.
+    It unpacks the params_dict and calls the evaluator with resolved Futures.
+
+    Parameters
+    ----------
+    evaluator : Callable
+        The bound evaluation method (already has self captured)
+    args : list or array
+        Individual parameters to evaluate
+    params_dict : dict
+        Dictionary containing forcing and observations (Futures are resolved by Dask)
+
+    Returns
+    -------
+    tuple
+        Fitness values
+
+    """
+    return evaluator(args, **params_dict)
+
+
 class EvaluationStrategy(ABC):
     """
     Abstract interface for evaluation strategies.
@@ -112,27 +137,62 @@ class DistributedEvaluation(EvaluationStrategy):
 
         Raises
         ------
-        TypeError
-            If cost function data is not distributed (not Futures)
+        RuntimeError
+            If no Dask client can be found in distributed parameters
 
         """
-        # Verify that forcing is distributed
-        if not isinstance(cost_function.forcing, Future):
-            msg = "CostFunction.forcing must be a Dask Future for distributed evaluation"
-            raise TypeError(msg)
-
-        # Verify that all observations are distributed
-        if not all(isinstance(obs, Future) for obs in cost_function.observations):
-            msg = "All observations must be Dask Futures for distributed evaluation"
-            raise TypeError(msg)
-
         self.cost_function = cost_function
-        # Extract client from one of the Futures
-        self.client = cost_function.forcing.client
+        self.client = self._extract_client()
+
+    def _extract_client(self):
+        """
+        Extract Dask client from distributed parameters.
+
+        Searches for a Future in the distributed parameters dictionary
+        and extracts its client.
+
+        Returns
+        -------
+        Client
+            Dask client from a Future
+
+        Raises
+        ------
+        RuntimeError
+            If no Future is found in distributed parameters
+
+        """
+        distributed_params = self.cost_function.get_distributed_parameters()
+
+        # Search for a Future in the dict (top-level or nested)
+        def find_future(obj):
+            if isinstance(obj, Future):
+                return obj
+            if isinstance(obj, dict):
+                for value in obj.values():
+                    result = find_future(value)
+                    if result:
+                        return result
+            if isinstance(obj, (list, tuple)):
+                for item in obj:
+                    result = find_future(item)
+                    if result:
+                        return result
+            return None
+
+        future = find_future(distributed_params)
+        if future is None:
+            msg = "No Dask Future found in distributed parameters. Cannot extract client."
+            raise RuntimeError(msg)
+
+        return future.client
 
     def evaluate(self, individuals: Sequence, toolbox: base.Toolbox) -> list:  # noqa: ARG002
         """
-        Distributed evaluation using client.map() with distributed CostFunction.
+        Distributed evaluation using client.map() with dictionary parameters.
+
+        Dask automatically resolves all Futures contained in the dictionary
+        when it's passed as an argument to the mapped function.
 
         Parameters
         ----------
@@ -149,15 +209,25 @@ class DistributedEvaluation(EvaluationStrategy):
         """
         logger.debug("Distributed evaluation of %d individuals", len(individuals))
 
-        # Generate evaluator from distributed cost function
-        evaluator = self.cost_function.generate()
+        # Get evaluator and distributed parameters from cost function
+        evaluator = self.cost_function.get_evaluator()
+        distributed_params = self.cost_function.get_distributed_parameters()
 
         # Convert individuals to parameter lists
         individual_params = [list(ind) for ind in individuals]
 
-        # Map computation across workers
-        # Dask automatically resolves Futures when evaluator is called on workers
-        futures = self.client.map(evaluator, individual_params)
+        # Create lists with repeated values for each individual
+        # Since broadcast=True was used in scatter, the Future is already on all workers
+        evaluator_list = [evaluator] * len(individual_params)
+        params_list = [distributed_params] * len(individual_params)
+
+        # Map with dict as argument - Dask resolves all Futures inside it
+        futures = self.client.map(
+            _evaluate_with_params,
+            evaluator_list,      # Same evaluator (bound method) for all
+            individual_params,   # Different for each individual
+            params_list,         # Same dict for all (Futures resolved by Dask)
+        )
 
         # Gather results
         return self.client.gather(futures)

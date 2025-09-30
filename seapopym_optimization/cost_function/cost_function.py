@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
+    from typing import Any
 
     import numpy as np
     from seapopym.standard.protocols import ForcingParameterProtocol, KernelParameterProtocol
@@ -43,8 +44,37 @@ class CostFunction:
         self: CostFunction,
         args: np.ndarray,
         forcing: ForcingParameterProtocol,
-        observations: Sequence[ObservationProtocol],
+        observations_data: Sequence,
+        observations_metadata: Sequence[dict],
     ) -> tuple:
+        """
+        Evaluate the cost function for given parameters.
+
+        Parameters
+        ----------
+        args : np.ndarray
+            Individual parameters to evaluate
+        forcing : ForcingParameterProtocol
+            Forcing parameters (resolved from Future if distributed)
+        observations_data : Sequence
+            List of observation data (resolved from Futures if distributed)
+        observations_metadata : Sequence[dict]
+            List of observation metadata (name, observation_type)
+
+        Returns
+        -------
+        tuple
+            Fitness values for each observation
+
+        """
+        # Reconstruct observation objects from data and metadata
+        from seapopym_optimization.observations import TimeSeriesObservation
+
+        observations = [
+            TimeSeriesObservation(name=meta["name"], observation=data, observation_type=meta["observation_type"])
+            for data, meta in zip(observations_data, observations_metadata, strict=True)
+        ]
+
         configuration = self.configuration_generator.generate(
             functional_group_parameters=self.functional_groups.generate(args),
             forcing_parameters=forcing,
@@ -60,5 +90,76 @@ class CostFunction:
             return tuple(self.processor.process(state, obs) for obs in observations)
 
     def generate(self: CostFunction) -> Callable[[Sequence[float]], tuple]:
-        """Generate the partial cost function used for optimization."""
-        return partial(self._cost_function, forcing=self.forcing, observations=self.observations)
+        """Generate the partial cost function used for sequential/parallel optimization."""
+        return partial(
+            self._cost_function,
+            forcing=self.forcing,
+            observations_data=[obs.observation for obs in self.observations],
+            observations_metadata=[
+                {"name": obs.name, "observation_type": obs.observation_type} for obs in self.observations
+            ],
+        )
+
+    def get_evaluator(self: CostFunction) -> Callable:
+        """
+        Return the evaluation function to be called on workers.
+
+        This method is used by distributed evaluation strategies to obtain
+        the core evaluation function without captured parameters.
+
+        Returns
+        -------
+        Callable
+            Function that takes (args, forcing, observations) and returns fitness tuple
+
+        Examples
+        --------
+        >>> evaluator = cost_function.get_evaluator()
+        >>> fitness = evaluator(args, forcing_data, observations_data)
+
+        """
+        return self._cost_function
+
+    def get_distributed_parameters(self: CostFunction) -> dict[str, Any]:
+        """
+        Return parameters that should be distributed to workers as a dictionary.
+
+        Dask will automatically resolve any Futures contained in this dictionary
+        when it's passed as an argument to client.map(). Observations are split
+        into data (Futures) and metadata to allow proper resolution.
+
+        Returns
+        -------
+        dict[str, Any]
+            Dictionary with keys:
+            - 'forcing': ForcingParameter or Future
+            - 'observations_data': List of observation data (DataArray or Futures)
+            - 'observations_metadata': List of dicts with name and observation_type
+
+        Notes
+        -----
+        If you subclass CostFunction and add new distributed parameters,
+        override this method to include them in the returned dictionary.
+
+        Examples
+        --------
+        >>> params = cost_function.get_distributed_parameters()
+        >>> params['forcing']
+        <ForcingParameter or Future>
+        >>> params['observations_data']
+        [<DataArray or Future>, ...]
+        >>> params['observations_metadata']
+        [{'name': 'obs1', 'observation_type': <DayCycle.DAY>}, ...]
+
+        See Also
+        --------
+        get_evaluator : Get the evaluation function to use with these parameters
+
+        """
+        return {
+            "forcing": self.forcing,
+            "observations_data": [obs.observation for obs in self.observations],
+            "observations_metadata": [
+                {"name": obs.name, "observation_type": obs.observation_type} for obs in self.observations
+            ],
+        }

@@ -88,4 +88,4 @@ class TimeSeriesScoreProcessor(AbstractScoreProcessor):
             raise ValueError(msg)
 
         prediction = self._pre_process_prediction(state[ForcingLabels.biomass], observation, positions)
-        return self.comparator(prediction.squeeze(), observation.observation.squeeze())
+        return self.comparator(prediction.squeeze(), observation)
