@@ -34,16 +34,6 @@ class Observation:
         """Check that the observation data is compliant with the format of the predicted biomass."""
         logger.debug("Checking observation '%s'", self.name)
 
-        # Skip validation for Dask Futures (distributed data)
-        try:
-            from dask.distributed import Future
-
-            if isinstance(self.observation, Future):
-                logger.debug("Observation '%s' is a Dask Future - skipping validation", self.name)
-                return
-        except ImportError:
-            pass
-
         if not isinstance(self.observation, xr.DataArray):
             msg = "Observation must be an xarray DataArray."
             raise TypeError(msg)
