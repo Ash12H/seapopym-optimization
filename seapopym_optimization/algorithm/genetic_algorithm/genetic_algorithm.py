@@ -98,7 +98,7 @@ class GeneticAlgorithmParameters:
         )
 
     def generate_toolbox(
-        self: GeneticAlgorithmParameters, parameters: Sequence[Parameter], cost_function: CostFunctionProtocol
+        self: GeneticAlgorithmParameters, parameters: Sequence[Parameter]
     ) -> base.Toolbox:
         """Generate a DEAP toolbox with the necessary functions for the genetic algorithm."""
         toolbox = base.Toolbox()
@@ -112,7 +112,7 @@ class GeneticAlgorithmParameters:
             return Individual([param.init_method(param.lower_bound, param.upper_bound) for param in parameters])
 
         toolbox.register("population", tools.initRepeat, list, individual)
-        toolbox.register("evaluate", cost_function.generate())
+        # Note: Evaluation is now handled by evaluation strategies, not the toolbox
         toolbox.register("mate", self.mate)
         low_boundaries = [param.lower_bound for param in parameters]
         up_boundaries = [param.upper_bound for param in parameters]
@@ -172,7 +172,7 @@ class GeneticAlgorithm:
 
         # Toolbox generation
         ordered_parameters = self.cost_function.functional_groups.unique_functional_groups_parameters_ordered()
-        self.toolbox = self.meta_parameter.generate_toolbox(ordered_parameters.values(), self.cost_function)
+        self.toolbox = self.meta_parameter.generate_toolbox(ordered_parameters.values())
 
         # Application des contraintes
         if self.constraint is not None:

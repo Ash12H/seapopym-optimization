@@ -4,13 +4,11 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from functools import partial
 from typing import TYPE_CHECKING
-
-from seapopym_optimization.observations import TimeSeriesObservation
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
+    from numbers import Number
     from typing import Any
 
     import numpy as np
@@ -46,8 +44,7 @@ class CostFunction:
         self: CostFunction,
         args: np.ndarray,
         forcing: ForcingParameterProtocol,
-        observations_data: Sequence,
-        observations_metadata: Sequence[dict],
+        observations: Sequence[ObservationProtocol],
     ) -> tuple:
         """
         Evaluate the cost function for given parameters.
@@ -58,10 +55,8 @@ class CostFunction:
             Individual parameters to evaluate
         forcing : ForcingParameterProtocol
             Forcing parameters (resolved from Future if distributed)
-        observations_data : Sequence
-            List of observation data (resolved from Futures if distributed)
-        observations_metadata : Sequence[dict]
-            List of observation metadata (name, observation_type)
+        observations : Sequence[ObservationProtocol]
+            List of observations (resolved from Futures if distributed)
 
         Returns
         -------
@@ -69,11 +64,6 @@ class CostFunction:
             Fitness values for each observation
 
         """
-        observations = [
-            TimeSeriesObservation(name=meta["name"], observation=data, observation_type=meta["observation_type"])
-            for data, meta in zip(observations_data, observations_metadata, strict=True)
-        ]
-
         configuration = self.configuration_generator.generate(
             functional_group_parameters=self.functional_groups.generate(args),
             forcing_parameters=forcing,
@@ -88,7 +78,7 @@ class CostFunction:
             # Compute score for each observation
             return tuple(self.processor.process(state, obs) for obs in observations)
 
-    def get_evaluator(self: CostFunction) -> Callable:
+    def get_evaluator(self: CostFunction) -> Callable[..., tuple[Number, ...]]:
         """
         Return the evaluation function to be called on workers.
 
@@ -97,8 +87,8 @@ class CostFunction:
 
         Returns
         -------
-        Callable
-            Function that takes (args, forcing, observations) and returns fitness tuple
+        Callable[..., tuple[Number, ...]]
+            Function that takes (args, forcing, observations) and returns a tuple of fitness values
 
         Examples
         --------
@@ -113,16 +103,14 @@ class CostFunction:
         Return parameters that should be distributed to workers as a dictionary.
 
         Dask will automatically resolve any Futures contained in this dictionary
-        when it's passed as an argument to client.map(). Observations are split
-        into data (Futures) and metadata to allow proper resolution.
+        when it's passed as an argument to client.map().
 
         Returns
         -------
         dict[str, Any]
             Dictionary with keys:
             - 'forcing': ForcingParameter or Future
-            - 'observations_data': List of observation data (DataArray or Futures)
-            - 'observations_metadata': List of dicts with name and observation_type
+            - 'observations': List of observation objects (TimeSeriesObservation or Futures)
 
         Notes
         -----
@@ -134,10 +122,8 @@ class CostFunction:
         >>> params = cost_function.get_distributed_parameters()
         >>> params['forcing']
         <ForcingParameter or Future>
-        >>> params['observations_data']
-        [<DataArray or Future>, ...]
-        >>> params['observations_metadata']
-        [{'name': 'obs1', 'observation_type': <DayCycle.DAY>}, ...]
+        >>> params['observations']
+        [<TimeSeriesObservation or Future>, ...]
 
         See Also
         --------
@@ -146,8 +132,5 @@ class CostFunction:
         """
         return {
             "forcing": self.forcing,
-            "observations_data": [obs.observation for obs in self.observations],
-            "observations_metadata": [
-                {"name": obs.name, "observation_type": obs.observation_type} for obs in self.observations
-            ],
+            "observations": self.observations,
         }

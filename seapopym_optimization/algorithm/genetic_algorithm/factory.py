@@ -21,7 +21,6 @@ from seapopym_optimization.algorithm.genetic_algorithm.evaluation_strategies imp
 from seapopym_optimization.algorithm.genetic_algorithm.genetic_algorithm import (
     GeneticAlgorithm,
 )
-from seapopym_optimization.observations import TimeSeriesObservation
 
 if TYPE_CHECKING:
     from seapopym_optimization.algorithm.genetic_algorithm.genetic_algorithm import (
@@ -184,17 +183,12 @@ class GeneticAlgorithmFactory:
 
         # Check and distribute observations one by one (modify in-place)
         for i, obs in enumerate(cost_function.observations):
-            if isinstance(obs.observation, Future):
+            if isinstance(obs, Future):
                 logger.info("Observation '%s' already distributed (Future detected). Using existing Future.", obs.name)
             else:
                 logger.info("Distributing observation '%s' to Dask workers with broadcast=True...", obs.name)
-                obs_future = client.scatter(obs.observation, broadcast=True)
-                # Replace observation with Future version
-                cost_function.observations[i] = TimeSeriesObservation(
-                    name=obs.name,
-                    observation=obs_future,
-                    observation_type=obs.observation_type,
-                )
+                # Distribute the entire observation object
+                cost_function.observations[i] = client.scatter(obs, broadcast=True)
 
         # Create distributed evaluation strategy with explicit client
         evaluation_strategy = DistributedEvaluation(cost_function, client)

@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 class OptimizationParametersProtocol(Protocol):
     """Protocol for parameters of an optimization algorithm."""
 
-    def generate_toolbox(self, parameters: Sequence[Parameter], cost_function: CostFunctionProtocol) -> base.Toolbox:
+    def generate_toolbox(self, parameters: Sequence[Parameter]) -> base.Toolbox:
         """Return a DEAP toolbox configured with the necessary optimization algorithm functions."""
         ...
 

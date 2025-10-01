@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
+    from numbers import Number
 
     from seapopym_optimization.protocols import ObservationProtocol
 
@@ -30,7 +31,7 @@ class CostFunctionProtocol(Protocol):
 
     observations: Sequence[ObservationProtocol]
 
-    def get_evaluator(self) -> Callable:
+    def get_evaluator(self) -> Callable[..., tuple[Number, ...]]:
         """
         Return the evaluation function to be called on workers.
 
@@ -40,8 +41,8 @@ class CostFunctionProtocol(Protocol):
 
         Returns
         -------
-        Callable
-            Function that evaluates an individual and returns fitness tuple
+        Callable[..., tuple[Number, ...]]
+            Function that evaluates an individual and returns a tuple of fitness values
 
         Examples
         --------
