@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from seapopym_optimization.algorithm.genetic_algorithm.genetic_algorithm import (
         GeneticAlgorithmParameters,
     )
-    from seapopym_optimization.protocols import CostFunctionProtocol
+    from seapopym_optimization.cost_function.protocol import CostFunctionProtocol
 
 logger = logging.getLogger(__name__)
 

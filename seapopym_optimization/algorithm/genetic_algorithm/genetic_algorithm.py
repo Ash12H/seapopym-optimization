@@ -20,8 +20,9 @@ if TYPE_CHECKING:
     from pandas._typing import FilePath, WriteBuffer
 
     from seapopym_optimization.algorithm.genetic_algorithm.evaluation_strategies import AbstractEvaluationStrategy
+    from seapopym_optimization.cost_function.protocol import CostFunctionProtocol
     from seapopym_optimization.functional_group.no_transport_functional_groups import Parameter
-    from seapopym_optimization.protocols import ConstraintProtocol, CostFunctionProtocol
+    from seapopym_optimization.protocols import ConstraintProtocol
 
 
 logger = logging.getLogger(__name__)

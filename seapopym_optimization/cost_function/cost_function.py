@@ -88,17 +88,6 @@ class CostFunction:
             # Compute score for each observation
             return tuple(self.processor.process(state, obs) for obs in observations)
 
-    def generate(self: CostFunction) -> Callable[[Sequence[float]], tuple]:
-        """Generate the partial cost function used for sequential/parallel optimization."""
-        return partial(
-            self._cost_function,
-            forcing=self.forcing,
-            observations_data=[obs.observation for obs in self.observations],
-            observations_metadata=[
-                {"name": obs.name, "observation_type": obs.observation_type} for obs in self.observations
-            ],
-        )
-
     def get_evaluator(self: CostFunction) -> Callable:
         """
         Return the evaluation function to be called on workers.

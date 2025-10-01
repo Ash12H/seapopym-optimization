@@ -5,21 +5,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Sequence
 
     from deap import base, tools
 
     from seapopym_optimization.algorithm.genetic_algorithm.logbook import OptimizationLog
+    from seapopym_optimization.cost_function.protocol import CostFunctionProtocol
     from seapopym_optimization.functional_group.no_transport_functional_groups import Parameter
-
-
-@runtime_checkable
-class CostFunctionProtocol(Protocol):
-    """Protocol for cost functions used in optimization."""
-
-    def generate(self) -> Callable[[Sequence[float]], tuple]:
-        """Generate the cost function used for optimization."""
-        ...
 
 
 @runtime_checkable
