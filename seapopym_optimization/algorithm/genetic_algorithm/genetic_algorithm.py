@@ -97,9 +97,7 @@ class GeneticAlgorithmParameters:
             np.asarray(self.cost_function_weight) / np.sum(np.absolute(self.cost_function_weight))
         )
 
-    def generate_toolbox(
-        self: GeneticAlgorithmParameters, parameters: Sequence[Parameter]
-    ) -> base.Toolbox:
+    def generate_toolbox(self: GeneticAlgorithmParameters, parameters: Sequence[Parameter]) -> base.Toolbox:
         """Generate a DEAP toolbox with the necessary functions for the genetic algorithm."""
         toolbox = base.Toolbox()
         Individual = individual_creator(self.cost_function_weight)  # noqa: N806
@@ -197,7 +195,7 @@ class GeneticAlgorithm:
             self.logbook = OptimizationLog(combined_dataset)
 
         if self.save is not None:
-            self.logbook.save_netcdf(str(self.save))
+            self.logbook.save(str(self.save))
 
     def _evaluate(self: GeneticAlgorithm, individuals: Sequence, generation: int) -> OptimizationLog:
         """
