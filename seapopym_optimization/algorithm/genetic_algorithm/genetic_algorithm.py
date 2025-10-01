@@ -123,12 +123,12 @@ class GeneticAlgorithmParameters:
 @dataclass
 class GeneticAlgorithm:
     """
-    Algorithme génétique pour l'optimisation de modèles SeapoPym.
+    Genetic algorithm for optimizing SeapoPym models.
 
-    Par défaut, l'ordre du processus est SCM: Select, Cross, Mutate.
+    By default, the process order is SCM: Select, Cross, Mutate.
 
-    Utilise le pattern Strategy pour l'évaluation des individus, permettant
-    de changer facilement entre mode séquentiel et hybride selon les besoins.
+    Uses the Strategy pattern for individual evaluation, allowing
+    easy switching between sequential and hybrid modes as needed.
 
     Examples
     --------
@@ -161,15 +161,15 @@ class GeneticAlgorithm:
     toolbox: base.Toolbox | None = field(default=None, init=False, repr=False)
 
     def __post_init__(self: GeneticAlgorithm) -> None:
-        """Check parameters et initialise la stratégie d'évaluation."""
-        # Configuration du logbook
+        """Check parameters and initialize the evaluation strategy."""
+        # Logbook configuration
         if self.save is not None:
             self.save = Path(self.save)
             if self.save.exists():
                 waring_msg = f"Logbook file {self.save} already exists. It will be overwritten."
                 logger.warning(waring_msg)
 
-        # Génération du toolbox
+        # Toolbox generation
         ordered_parameters = self.cost_function.functional_groups.unique_functional_groups_parameters_ordered()
         self.toolbox = self.meta_parameter.generate_toolbox(ordered_parameters.values(), self.cost_function)
 
@@ -200,8 +200,8 @@ class GeneticAlgorithm:
 
     def _evaluate(self: GeneticAlgorithm, individuals: Sequence, generation: int) -> OptimizationLog:
         """
-        Évalue les individus en déléguant à la stratégie d'évaluation.
-        Logique simplifiée et focalisée sur la création du logbook.
+        Evaluate individuals by delegating to the evaluation strategy.
+        Simplified logic focused on logbook creation.
         """
 
         def update_fitness(individuals: list) -> list:
@@ -209,7 +209,7 @@ class GeneticAlgorithm:
             invalid_ind = [ind for ind in individuals if not ind.fitness.valid]
 
             if invalid_ind:
-                # Délégation à la stratégie d'évaluation
+                # Delegation to the evaluation strategy
                 fitnesses = self.evaluation_strategy.evaluate(invalid_ind)
 
                 for ind, fit in zip(invalid_ind, fitnesses, strict=True):

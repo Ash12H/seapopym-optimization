@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from functools import partial
 from typing import TYPE_CHECKING
 
+from seapopym_optimization.observations import TimeSeriesObservation
+
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
     from typing import Any
@@ -67,9 +69,6 @@ class CostFunction:
             Fitness values for each observation
 
         """
-        # Reconstruct observation objects from data and metadata
-        from seapopym_optimization.observations import TimeSeriesObservation
-
         observations = [
             TimeSeriesObservation(name=meta["name"], observation=data, observation_type=meta["observation_type"])
             for data, meta in zip(observations_data, observations_metadata, strict=True)

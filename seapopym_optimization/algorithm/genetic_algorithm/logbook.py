@@ -162,6 +162,7 @@ class OptimizationLog:
             Raw fitness values (ind.fitness.values) without weights
         weighted_fitness_values : list[tuple]
             Weighted fitness values (ind.fitness.wvalues) with DEAP weights applied
+
         """
         for ind_idx, raw_tuple, weighted_tuple in zip(
             individual_indices, raw_fitness_values, weighted_fitness_values, strict=True

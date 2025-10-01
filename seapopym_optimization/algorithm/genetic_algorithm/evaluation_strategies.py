@@ -19,8 +19,6 @@ from dask.distributed import Future
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from deap import base
-
     from seapopym_optimization.cost_function import CostFunction
 
 logger = logging.getLogger(__name__)
@@ -155,6 +153,8 @@ class DistributedEvaluation(AbstractEvaluationStrategy):
 
         """
         distributed_params = self.cost_function.get_distributed_parameters()
+
+        # TODO(Jules): Should we send the client to the strategy instead?
 
         # Search for a Future in the dict (top-level or nested)
         def find_future(obj):

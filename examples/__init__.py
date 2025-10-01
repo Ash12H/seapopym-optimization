@@ -1,1 +1,0 @@
-"""Examples for SeapoPym optimization."""
