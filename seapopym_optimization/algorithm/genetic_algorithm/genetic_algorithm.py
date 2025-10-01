@@ -225,7 +225,7 @@ class GeneticAlgorithm:
         parameter_names = list(
             self.cost_function.functional_groups.unique_functional_groups_parameters_ordered().keys()
         )
-        fitness_names = [obs.name for obs in self.cost_function.observations]
+        fitness_names = list(self.cost_function.observations.keys())
 
         # Extract both raw and weighted fitness values from DEAP
         raw_fitness_values = [tuple(ind.fitness.values) for ind in individuals]

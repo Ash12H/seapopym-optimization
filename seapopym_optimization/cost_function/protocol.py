@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Callable
     from numbers import Number
 
     from seapopym_optimization.protocols import ObservationProtocol
@@ -29,7 +29,7 @@ class CostFunctionProtocol(Protocol):
     transparently without modifying the cost function implementation.
     """
 
-    observations: Sequence[ObservationProtocol]
+    observations: dict[str, ObservationProtocol]
 
     def get_evaluator(self) -> Callable[..., tuple[Number, ...]]:
         """

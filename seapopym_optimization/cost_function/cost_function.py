@@ -31,12 +31,20 @@ class CostFunction:
     functional_groups: FunctionalGroupSet[AbstractFunctionalGroup]
     forcing: ForcingParameterProtocol
     kernel: KernelParameterProtocol
-    observations: Sequence[ObservationProtocol]  # Can accept any observation implementation
+    observations: dict[str, ObservationProtocol] | Sequence[ObservationProtocol]  # Dict or Sequence of observations
     processor: AbstractScoreProcessor  # Processor for computing scores from state and observations
 
     def __post_init__(self: CostFunction) -> None:
-        """Check types and convert functional groups if necessary."""
-        # TODO(Jules): Implement type checking and conversion if necessary
+        """Convert observations to dict if needed and validate observation names match dictionary keys."""
+        # Convert Sequence to dict if needed
+        if not isinstance(self.observations, dict):
+            self.observations = {obs.name: obs for obs in self.observations}
+
+        # Validate that observation names match dictionary keys
+        for name, obs in self.observations.items():
+            if obs.name != name:
+                msg = f"Observation name mismatch: key='{name}', obs.name='{obs.name}'"
+                raise ValueError(msg)
 
     # NOTE(Jules): Forcing and observations must be passed as parameter of the cost function to be used with Dask
     # and scattered to workers. They cannot be attributes of the class.
@@ -44,7 +52,7 @@ class CostFunction:
         self: CostFunction,
         args: np.ndarray,
         forcing: ForcingParameterProtocol,
-        observations: Sequence[ObservationProtocol],
+        observations: dict[str, ObservationProtocol],
     ) -> tuple:
         """
         Evaluate the cost function for given parameters.
@@ -55,13 +63,13 @@ class CostFunction:
             Individual parameters to evaluate
         forcing : ForcingParameterProtocol
             Forcing parameters (resolved from Future if distributed)
-        observations : Sequence[ObservationProtocol]
-            List of observations (resolved from Futures if distributed)
+        observations : dict[str, ObservationProtocol]
+            Dictionary of observations (resolved from Futures if distributed)
 
         Returns
         -------
         tuple
-            Fitness values for each observation
+            Fitness values for each observation (in dict order)
 
         """
         configuration = self.configuration_generator.generate(
@@ -75,8 +83,8 @@ class CostFunction:
             model.run()
             state = model.state
 
-            # Compute score for each observation
-            return tuple(self.processor.process(state, obs) for obs in observations)
+            # Compute score for each observation (dict preserves insertion order in Python 3.7+)
+            return tuple(self.processor.process(state, obs) for obs in observations.values())
 
     def get_evaluator(self: CostFunction) -> Callable[..., tuple[Number, ...]]:
         """
@@ -110,7 +118,7 @@ class CostFunction:
         dict[str, Any]
             Dictionary with keys:
             - 'forcing': ForcingParameter or Future
-            - 'observations': List of observation objects (TimeSeriesObservation or Futures)
+            - 'observations': Dict of observations {name: observation} or {name: Future}
 
         Notes
         -----
@@ -123,7 +131,7 @@ class CostFunction:
         >>> params['forcing']
         <ForcingParameter or Future>
         >>> params['observations']
-        [<TimeSeriesObservation or Future>, ...]
+        {'Biomass': <TimeSeriesObservation or Future>, ...}
 
         See Also
         --------

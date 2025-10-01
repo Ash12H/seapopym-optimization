@@ -181,14 +181,14 @@ class GeneticAlgorithmFactory:
             logger.info("Distributing forcing to Dask workers with broadcast=True...")
             cost_function.forcing = client.scatter(cost_function.forcing, broadcast=True)
 
-        # Check and distribute observations one by one (modify in-place)
-        for i, obs in enumerate(cost_function.observations):
+        # Check and distribute observations dict (modify in-place)
+        for name, obs in cost_function.observations.items():
             if isinstance(obs, Future):
-                logger.info("Observation '%s' already distributed (Future detected). Using existing Future.", obs.name)
+                logger.info("Observation '%s' already distributed (Future detected). Using existing Future.", name)
             else:
-                logger.info("Distributing observation '%s' to Dask workers with broadcast=True...", obs.name)
+                logger.info("Distributing observation '%s' to Dask workers with broadcast=True...", name)
                 # Distribute the entire observation object
-                cost_function.observations[i] = client.scatter(obs, broadcast=True)
+                cost_function.observations[name] = client.scatter(obs, broadcast=True)
 
         # Create distributed evaluation strategy with explicit client
         evaluation_strategy = DistributedEvaluation(cost_function, client)
