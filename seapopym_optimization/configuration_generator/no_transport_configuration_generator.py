@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from seapopym.configuration.no_transport import (
@@ -46,6 +47,7 @@ def no_transport_functional_group_unit_generator(
     )
 
 
+@dataclass
 class NoTransportConfigurationGenerator:
     """
     Generate the configuration used to create a NoTransport model in SeapoPym.
@@ -53,7 +55,7 @@ class NoTransportConfigurationGenerator:
     Based on `ConfigurationGeneratorProtocol`.
     """
 
-    model_class = NoTransportModel
+    model_class: type[NoTransportModel] = NoTransportModel
 
     def generate(
         self,
