@@ -18,8 +18,8 @@ if TYPE_CHECKING:
     from seapopym.standard import SeapopymState
 
     from seapopym_optimization.cost_function.metric import MetricProtocol
+    from seapopym_optimization.observations.protocol import ObservationProtocol
     from seapopym_optimization.observations.time_serie import TimeSeriesObservation
-    from seapopym_optimization.protocols import ObservationProtocol
 
 
 # NOTE(Jules): This function will be used in the future to aggregate biomass by layer so we can compute score for

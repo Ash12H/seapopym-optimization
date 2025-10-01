@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from seapopym_optimization.configuration_generator.protocols import ConfigurationGeneratorProtocol
     from seapopym_optimization.cost_function.processor import AbstractScoreProcessor
     from seapopym_optimization.functional_group.base_functional_group import AbstractFunctionalGroup, FunctionalGroupSet
-    from seapopym_optimization.protocols import ObservationProtocol
+    from seapopym_optimization.observations.protocol import ObservationProtocol
 
 logger = logging.getLogger(__name__)
 

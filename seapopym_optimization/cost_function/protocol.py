@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from numbers import Number
 
-    from seapopym_optimization.protocols import ObservationProtocol
+    from seapopym_optimization.observations.protocol import ObservationProtocol
 
 
 @runtime_checkable

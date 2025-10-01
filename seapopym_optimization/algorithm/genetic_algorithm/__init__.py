@@ -1,11 +1,11 @@
-from .genetic_algorithm import GeneticAlgorithm, GeneticAlgorithmParameters
-from .factory import GeneticAlgorithmFactory
 from .evaluation_strategies import (
     AbstractEvaluationStrategy,
-    SequentialEvaluation,
     DistributedEvaluation,
     ParallelEvaluation,
+    SequentialEvaluation,
 )
+from .factory import GeneticAlgorithmFactory
+from .genetic_algorithm import GeneticAlgorithm, GeneticAlgorithmParameters
 
 # Optional imports for distributed computing
 try:
@@ -16,7 +16,10 @@ except ImportError:
     _HAS_DASK_SUPPORT = False
 
 # Import protocols for type checking and runtime validation
-from ...protocols import OptimizationAlgorithmProtocol, OptimizationParametersProtocol
+from seapopym_optimization.algorithm.protocol import (
+    OptimizationAlgorithmProtocol,
+    OptimizationParametersProtocol,
+)
 
 __all__ = [
     # Core classes

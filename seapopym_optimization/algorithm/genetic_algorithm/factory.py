@@ -37,6 +37,11 @@ class GeneticAlgorithmFactory:
 
     This factory simplifies genetic algorithm creation by encapsulating
     the configuration logic for evaluation strategies and distribution.
+
+    See Also
+    --------
+    seapopym_optimization.algorithm.genetic_algorithm.genetic_algorithm.GeneticAlgorithm : Main GA class
+
     """
 
     @staticmethod

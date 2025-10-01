@@ -1,4 +1,4 @@
-from .base_functional_group import Parameter, FunctionalGroupSet
-from .no_transport_functional_groups import NoTransportFunctionalGroup
 from .acidity_functional_groups import AcidityFunctionalGroup
+from .base_functional_group import FunctionalGroupSet, Parameter
+from .no_transport_functional_groups import NoTransportFunctionalGroup
 from .parameter_initialization import initialize_with_sobol_sampling, random_uniform_exclusive

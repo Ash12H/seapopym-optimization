@@ -1,4 +1,4 @@
-"""Protocols for SeapoPym optimization algorithms and components."""
+"""Protocols for optimization algorithms and their parameters."""
 
 from __future__ import annotations
 
@@ -7,9 +7,10 @@ from typing import TYPE_CHECKING, Protocol, runtime_checkable
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from deap import base, tools
+    from deap import base
 
     from seapopym_optimization.algorithm.genetic_algorithm.logbook import OptimizationLog
+    from seapopym_optimization.constraint.protocol import ConstraintProtocol
     from seapopym_optimization.cost_function.protocol import CostFunctionProtocol
     from seapopym_optimization.functional_group.no_transport_functional_groups import Parameter
 
@@ -33,20 +34,3 @@ class OptimizationAlgorithmProtocol(Protocol):
     def optimize(self) -> OptimizationLog:
         """Run the optimization algorithm and return the optimization results as an OptimizationLog."""
         ...
-
-
-@runtime_checkable
-class ConstraintProtocol(Protocol):
-    """Protocol for constraints used in optimization algorithms."""
-
-    def generate(self, parameter_names: Sequence[str]) -> tools.DeltaPenalty:
-        """Generate the DEAP DeltaPenalty constraint for the optimization algorithm."""
-        ...
-
-
-@runtime_checkable
-class ObservationProtocol(Protocol):
-    """Protocol for observations used in cost functions."""
-
-    name: str
-    observation: object
