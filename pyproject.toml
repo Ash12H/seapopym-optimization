@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "seapopym_optimization"
-version = "0.0.1.8.1"
+version = "0.0.2"
 description = "A Python package for optimizing SeapoPym models using DEAP and Dask"
 license = "MIT"
 readme = "README.md"
