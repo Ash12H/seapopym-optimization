@@ -196,8 +196,8 @@ class GeneticAlgorithmFactory:
                     observation_type=obs.observation_type,
                 )
 
-        # Create distributed evaluation strategy
-        evaluation_strategy = DistributedEvaluation(cost_function)
+        # Create distributed evaluation strategy with explicit client
+        evaluation_strategy = DistributedEvaluation(cost_function, client)
 
         # Create and return GA instance
         return GeneticAlgorithm(

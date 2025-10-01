@@ -14,10 +14,10 @@ from abc import ABC, abstractmethod
 from concurrent.futures import ProcessPoolExecutor
 from typing import TYPE_CHECKING
 
-from dask.distributed import Future
-
 if TYPE_CHECKING:
     from collections.abc import Sequence
+
+    from dask.distributed import Client
 
     from seapopym_optimization.cost_function import CostFunction
 
@@ -116,7 +116,7 @@ class DistributedEvaluation(AbstractEvaluationStrategy):
     individuals across multiple workers efficiently.
     """
 
-    def __init__(self, cost_function: CostFunction) -> None:
+    def __init__(self, cost_function: CostFunction, client: Client) -> None:
         """
         Initialize distributed evaluation strategy.
 
@@ -124,60 +124,12 @@ class DistributedEvaluation(AbstractEvaluationStrategy):
         ----------
         cost_function : CostFunction
             Cost function with distributed data (Futures)
-
-        Raises
-        ------
-        RuntimeError
-            If no Dask client can be found in distributed parameters
+        client : Client
+            Dask distributed client for executing distributed computations
 
         """
         self.cost_function = cost_function
-        self.client = self._extract_client()
-
-    def _extract_client(self):
-        """
-        Extract Dask client from distributed parameters.
-
-        Searches for a Future in the distributed parameters dictionary
-        and extracts its client.
-
-        Returns
-        -------
-        Client
-            Dask client from a Future
-
-        Raises
-        ------
-        RuntimeError
-            If no Future is found in distributed parameters
-
-        """
-        distributed_params = self.cost_function.get_distributed_parameters()
-
-        # TODO(Jules): Should we send the client to the strategy instead?
-
-        # Search for a Future in the dict (top-level or nested)
-        def find_future(obj):
-            if isinstance(obj, Future):
-                return obj
-            if isinstance(obj, dict):
-                for value in obj.values():
-                    result = find_future(value)
-                    if result:
-                        return result
-            if isinstance(obj, (list, tuple)):
-                for item in obj:
-                    result = find_future(item)
-                    if result:
-                        return result
-            return None
-
-        future = find_future(distributed_params)
-        if future is None:
-            msg = "No Dask Future found in distributed parameters. Cannot extract client."
-            raise RuntimeError(msg)
-
-        return future.client
+        self.client = client
 
     def evaluate(self, individuals: Sequence) -> list:
         """
