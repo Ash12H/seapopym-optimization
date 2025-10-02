@@ -146,7 +146,7 @@ class GeneticAlgorithm:
     constraint: Sequence[ConstraintProtocol] | None
         The constraints to apply to the individuals. If None, no constraints are applied.
     save: PathLike | None
-        The path to save the logbook (in parquet format). If None, the logbook is not saved.
+        The path to save the logbook (in NetCDF format). If None, the logbook is not saved.
 
     """
 

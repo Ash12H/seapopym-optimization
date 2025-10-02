@@ -245,8 +245,8 @@ class OptimizationLog:
             fitness_names=fitness_names,
         )
 
-    def save(self, filepath: str, engine: str = "zarr") -> None:
-        """Save logbook to NetCDF file."""
+    def save(self, filepath: str, engine: str = "netcdf") -> None:
+        """Save logbook to NetCDF or Zarr file."""
         if engine not in ["zarr", "netcdf"]:
             msg = f"Engine should be 'zarr' or 'netcdf', got '{engine}'."
             raise ValueError(msg)
