@@ -8,10 +8,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 import numpy as np
-import xarray as xr
 from deap import algorithms, base, tools
 
-from seapopym_optimization.algorithm.genetic_algorithm.logbook import OptimizationLog
+from seapopym_optimization.algorithm.genetic_algorithm.logbook import Logbook, LogbookCategory, LogbookIndex
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -146,7 +145,7 @@ class GeneticAlgorithm:
     constraint: Sequence[ConstraintProtocol] | None
         The constraints to apply to the individuals. If None, no constraints are applied.
     save: PathLike | None
-        The path to save the logbook (in NetCDF format). If None, the logbook is not saved.
+        The path to save the logbook (in Parquet format). If None, the logbook is not saved.
 
     """
 
@@ -156,17 +155,19 @@ class GeneticAlgorithm:
     constraint: Sequence[ConstraintProtocol] | None = None
 
     save: FilePath | WriteBuffer[bytes] | None = None
-    logbook: OptimizationLog | None = field(default=None, repr=False)
+    logbook: Logbook | None = field(default=None, repr=False)
     toolbox: base.Toolbox | None = field(default=None, init=False, repr=False)
 
     def __post_init__(self: GeneticAlgorithm) -> None:
         """Check parameters and initialize the evaluation strategy."""
         # Logbook configuration
+        if self.logbook is not None and not isinstance(self.logbook, Logbook):
+            self.logbook = Logbook(self.logbook)
         if self.save is not None:
             self.save = Path(self.save)
             if self.save.exists():
-                waring_msg = f"Logbook file {self.save} already exists. It will be overwritten."
-                logger.warning(waring_msg)
+                warning_msg = f"Logbook file {self.save} already exists. It will be overwritten."
+                logger.warning(warning_msg)
 
         # Toolbox generation
         ordered_parameters = self.cost_function.functional_groups.unique_functional_groups_parameters_ordered()
@@ -185,22 +186,24 @@ class GeneticAlgorithm:
             )
             raise ValueError(msg)
 
-    def update_logbook(self: GeneticAlgorithm, logbook: OptimizationLog) -> None:
+    def update_logbook(self: GeneticAlgorithm, logbook: Logbook) -> None:
         """Update the logbook with the new data and save to disk if a path is provided."""
+        if not isinstance(logbook, Logbook):
+            logbook = Logbook(logbook)
+
         if self.logbook is None:
             self.logbook = logbook
         else:
-            # Concatenate the entire datasets along the generation dimension
-            combined_dataset = xr.concat([self.logbook.dataset, logbook.dataset], dim="generation", join="outer")
-            self.logbook = OptimizationLog(combined_dataset)
+            # Append new generation using Pandas concat
+            self.logbook = self.logbook.append_new_generation(logbook)
 
         if self.save is not None:
-            self.logbook.save(str(self.save))
+            self.logbook.to_parquet(self.save)
 
-    def _evaluate(self: GeneticAlgorithm, individuals: Sequence, generation: int) -> OptimizationLog:
+    def _evaluate(self: GeneticAlgorithm, individuals: Sequence, generation: int) -> Logbook:
         """
         Evaluate individuals by delegating to the evaluation strategy.
-        Simplified logic focused on logbook creation.
+        Creates and returns a Logbook for the current generation.
         """
 
         def update_fitness(individuals: list) -> list:
@@ -218,30 +221,75 @@ class GeneticAlgorithm:
 
         known = update_fitness(individuals)
 
-        # Extract parameter values and fitness
-        individual_params = [list(ind) for ind in individuals]
+        # Extract parameter names and fitness names
         parameter_names = list(
             self.cost_function.functional_groups.unique_functional_groups_parameters_ordered().keys()
         )
         fitness_names = list(self.cost_function.observations.keys())
 
-        # Extract both raw and weighted fitness values from DEAP
-        raw_fitness_values = [tuple(ind.fitness.values) for ind in individuals]
-        weighted_fitness_values = [tuple(ind.fitness.wvalues) for ind in individuals]
-
-        # Create OptimizationLog
-        logbook = OptimizationLog.from_individual(
+        # Create Logbook from individuals (fitness is automatically extracted)
+        return Logbook.from_individual(
             generation=generation,
             is_from_previous_generation=known,
-            individual=individual_params,
+            individual=individuals,
             parameter_names=parameter_names,
             fitness_names=fitness_names,
         )
 
-        # Update fitness values in the logbook (both raw and weighted)
-        logbook.update_fitness(generation, list(range(len(individuals))), raw_fitness_values, weighted_fitness_values)
+    # def _initialization(self: GeneticAlgorithm) -> tuple[int, list[list]]:
+    #     """Initialize the genetic algorithm. If a logbook is provided, it will load the last generation."""
 
-        return logbook
+    #     def create_first_generation() -> tuple[Literal[1], list[list]]:
+    #         """Create the first generation (i.e. generation `0`) of individuals."""
+    #         new_generation = 0
+    #         population = self.toolbox.population(n=self.meta_parameter.POP_SIZE)
+    #         logbook = self._evaluate(individuals=population, generation=new_generation)
+    #         self.update_logbook(logbook)
+    #         next_generation = new_generation + 1
+    #         return next_generation, population
+
+    #     def create_population_from_logbook(generation_data: Logbook) -> list[list]:
+    #         """Create a population from Logbook DataFrame for a specific generation."""
+    #         individuals = []
+
+    #         # Extract parameters and fitness columns
+    #         params_df = generation_data.xs(LogbookCategory.PARAMETER, level=0, axis=1)
+    #         fitness_df = generation_data.xs(LogbookCategory.FITNESS, level=0, axis=1)
+
+    #         for idx in range(len(generation_data)):
+    #             # Create individual with parameters
+    #             individual_params = params_df.iloc[idx].tolist()
+    #             individual = self.toolbox.Individual(individual_params)
+
+    #             # Set fitness if available (check if all fitness values are not NaN)
+    #             ind_fitness = fitness_df.iloc[idx].values
+    #             if not np.any(np.isnan(ind_fitness)):
+    #                 individual.fitness.values = tuple(ind_fitness)
+
+    #             individuals.append(individual)
+
+    #         return individuals
+
+    #     if self.logbook is None:
+    #         return create_first_generation()
+
+    #     logger.info("Logbook found. Loading last generation.")
+
+    #     last_generation = max(self.logbook.generations)
+    #     generation_data = self.logbook.loc[last_generation]
+
+    #     population = create_population_from_logbook(generation_data)
+
+    #     # Check if re-evaluation is needed
+    #     weighted_fitness = generation_data[(LogbookCategory.WEIGHTED_FITNESS, LogbookCategory.WEIGHTED_FITNESS)]
+    #     if np.any(np.isnan(weighted_fitness.values)):
+    #         logger.warning("Some individuals in the logbook have no fitness values. Re-evaluating the population.")
+    #         logbook = self._evaluate(population, last_generation)
+    #         # Replace the generation data in the logbook
+    #         self.logbook = None
+    #         self.update_logbook(logbook)
+
+    #     return last_generation + 1, population
 
     def _initialization(self: GeneticAlgorithm) -> tuple[int, list[list]]:
         """Initialize the genetic algorithm. If a logbook is provided, it will load the last generation."""
@@ -255,48 +303,35 @@ class GeneticAlgorithm:
             next_generation = new_generation + 1
             return next_generation, population
 
-        def create_population_from_logbook(generation_data: xr.Dataset) -> list[list]:
-            """Create a population from the logbook xarray Dataset."""
-            individuals = []
-            fitness_data = generation_data["fitness"].data
-            param_data = generation_data["parameters"].data
-
-            for ind_idx in range(len(param_data)):
-                # Create individual with parameters
-                individual_params = param_data[ind_idx].tolist()
-                individual = self.toolbox.Individual(individual_params)
-
-                # Set fitness if available
-                ind_fitness = fitness_data[ind_idx]
-                if not np.any(np.isnan(ind_fitness)):
-                    individual.fitness.values = tuple(ind_fitness)
-
-                individuals.append(individual)
-
-            return individuals
+        def create_population_from_logbook(population_unprocessed: pd.DataFrame) -> list[list]:
+            """Create a population from the logbook DataFrame."""
+            individuals = population_unprocessed.loc[:, [LogbookCategory.PARAMETER]].to_numpy()
+            fitness = list(population_unprocessed.loc[:, [LogbookCategory.FITNESS]].itertuples(index=False, name=None))
+            fitness = [() if any(np.isnan(fit)) else fit for fit in fitness]
+            return [
+                self.toolbox.Individual(iterator=iterator, values=values)
+                for iterator, values in zip(individuals, fitness, strict=True)
+            ]
 
         if self.logbook is None:
             return create_first_generation()
 
-        logger.info("OptimizationLog found. Loading last generation.")
+        logger.info("Logbook found. Loading last generation.")
 
-        last_generation = max(self.logbook.generations)
-        generation_data = self.logbook.sel_generation(last_generation)
+        last_computed_generation = self.logbook.index.get_level_values(LogbookIndex.GENERATION).max()
+        population_unprocessed = self.logbook.loc[last_computed_generation]
 
-        population = create_population_from_logbook(generation_data)
+        population = create_population_from_logbook(population_unprocessed)
 
-        # Check if re-evaluation is needed
-        fitness_data = generation_data["weighted_fitness"]
-        if np.any(np.isnan(fitness_data.values)):
+        if population_unprocessed.loc[:, LogbookCategory.FITNESS].isna().any(axis=None):
             logger.warning("Some individuals in the logbook have no fitness values. Re-evaluating the population.")
-            logbook = self._evaluate(population, last_generation)
-            # Replace the generation data in the logbook
+            logbook = self._evaluate(population, last_computed_generation)
             self.logbook = None
             self.update_logbook(logbook)
 
-        return last_generation + 1, population
+        return last_computed_generation + 1, population
 
-    def optimize(self: GeneticAlgorithm) -> OptimizationLog:
+    def optimize(self: GeneticAlgorithm) -> Logbook:
         """This is the main function. Use it to optimize your model."""
         generation_start, population = self._initialization()
 

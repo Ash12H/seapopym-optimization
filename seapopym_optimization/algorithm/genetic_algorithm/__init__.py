@@ -6,14 +6,8 @@ from .evaluation_strategies import (
 )
 from .factory import GeneticAlgorithmFactory
 from .genetic_algorithm import GeneticAlgorithm, GeneticAlgorithmParameters
+from .logbook import Logbook, LogbookCategory, LogbookIndex
 
-# Optional imports for distributed computing
-try:
-    from .distribution_manager import DistributionManager
-    _HAS_DASK_SUPPORT = True
-except ImportError:
-    DistributionManager = None
-    _HAS_DASK_SUPPORT = False
 
 # Import protocols for type checking and runtime validation
 from seapopym_optimization.algorithm.protocol import (
@@ -26,6 +20,11 @@ __all__ = [
     "GeneticAlgorithm",
     "GeneticAlgorithmParameters",
     "GeneticAlgorithmFactory",
+
+    # Logbook
+    "Logbook",
+    "LogbookCategory",
+    "LogbookIndex",
 
     # Evaluation strategies
     "AbstractEvaluationStrategy",
@@ -41,6 +40,3 @@ __all__ = [
     "OptimizationParametersProtocol",
 ]
 
-# Remove None values from __all__ if Dask is not available
-if not _HAS_DASK_SUPPORT:
-    __all__ = [item for item in __all__ if item != "DistributionManager"]
