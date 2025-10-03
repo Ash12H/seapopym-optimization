@@ -1,4 +1,5 @@
 from .acidity_functional_groups import AcidityFunctionalGroup
+from .pteropods_bed_functional_groups import PteropodBedFunctionalGroup
 from .base_functional_group import FunctionalGroupSet, Parameter
 from .no_transport_functional_groups import NoTransportFunctionalGroup
 from .parameter_initialization import initialize_with_sobol_sampling, random_uniform_exclusive

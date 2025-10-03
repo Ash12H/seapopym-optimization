@@ -19,5 +19,6 @@ class PteropodBedFunctionalGroup(AbstractFunctionalGroup):
     gamma_lambda_acidity: float | Parameter
     survival_rate_0: float | Parameter
     gamma_survival_rate_temperature: float | Parameter
+    gamma_survival_rate_acidity: float | Parameter
     tr_0: float | Parameter
     gamma_tr: float | Parameter

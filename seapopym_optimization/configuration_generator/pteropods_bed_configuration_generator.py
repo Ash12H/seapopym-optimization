@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from seapopym.configuration.acidity import (
@@ -18,6 +19,8 @@ from seapopym.configuration.no_transport import (
     KernelParameter,
     MigratoryTypeParameter,
 )
+from seapopym.model import AcidityBedModel
+
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -42,16 +45,19 @@ def pteropod_bed_functional_group_unit_generator(
             night_layer=functional_group.night_layer,
         ),
         functional_type=FunctionalTypeParameter(
-            lambda_temperature_0=functional_group.lambda_temperature_0,
+            lambda_0=functional_group.lambda_0,
             gamma_lambda_temperature=functional_group.gamma_lambda_temperature,
+            gamma_lambda_acidity=functional_group.gamma_lambda_acidity,
             tr_0=functional_group.tr_0,
             gamma_tr=functional_group.gamma_tr,
-            lambda_acidity_0=functional_group.lambda_acidity_0,
-            gamma_lambda_acidity=functional_group.gamma_lambda_acidity,
+            gamma_survival_rate_temperature=functional_group.gamma_survival_rate_temperature,
+            gamma_survival_rate_acidity=functional_group.gamma_survival_rate_acidity,
+            survival_rate_0=functional_group.survival_rate_0,
         ),
     )
 
 
+@dataclass
 class PteropodsBedConfigurationGenerator:
     """
     Generate the configuration used to create a Pteropod model in SeapoPym based on Bednarsek equations.
@@ -59,15 +65,17 @@ class PteropodsBedConfigurationGenerator:
     Based on `ConfigurationGeneratorProtocol`.
     """
 
+    model_class: type[AcidityBedModel] = AcidityBedModel
+
     def generate(
         self,
-        functional_groups: Sequence[PteropodBedFunctionalGroup],
+        functional_group_parameters: Sequence[PteropodBedFunctionalGroup],
         forcing_parameters: ForcingParameter,
         kernel: KernelParameter | None = None,
     ) -> AcidityBedConfiguration:
         """Generate a AcidityBedConfiguration with the given functional groups and parameters."""
         functional_groups_converted = [
-            pteropod_bed_functional_group_unit_generator(fg) for fg in functional_groups.functional_groups
+            pteropod_bed_functional_group_unit_generator(fg) for fg in functional_group_parameters
         ]
         return AcidityBedConfiguration(
             forcing=forcing_parameters,
