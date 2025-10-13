@@ -10,8 +10,7 @@ classifiers = ["Topic :: Scientific/Engineering :: Oceanography"]
 
 [tool.poetry.dependencies]
 python = "<3.13,>=3.12"
-# seapopym = "^0.0.2.5.5"
-seapopym = { path = "/Users/adm-lehodey/Documents/Workspace/Projects/Seapopym/", develop = true }
+seapopym = "^0.0.2.5.5"
 deap = "^1.4.3"
 dask = "^2025.9.0"
 distributed = "^2025.9.0"
@@ -41,6 +40,3 @@ matplotlib = "^3.10.6"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
-
-[tool.poetry.requires-plugins]
-poetry-plugin-export = "^1.9.0"
