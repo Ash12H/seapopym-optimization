@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 from seapopym.configuration.acidity import (
     ForcingParameter,
 )
-
 from seapopym.configuration.acidity_bed import (
     AcidityBedConfiguration,
     FunctionalGroupParameter,
@@ -20,7 +19,6 @@ from seapopym.configuration.no_transport import (
     MigratoryTypeParameter,
 )
 from seapopym.model import AcidityBedModel
-
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

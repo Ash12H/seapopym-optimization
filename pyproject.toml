@@ -40,3 +40,6 @@ matplotlib = "^3.10.6"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.group.export.dependencies]
+poetry-plugin-export = "^1.6.0"
