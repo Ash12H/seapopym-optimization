@@ -3826,26 +3826,28 @@ test = ["Cython", "array-api-strict (>=2.3.1)", "asv", "gmpy2", "hypothesis (>=6
 
 [[package]]
 name = "seapopym"
-version = "0.0.2.5.2"
+version = "0.0.2.5.5"
 description = "Seapodym is a Python package that provides models to simulate the dynamics of low and mid trophic level marine ecosystems."
 optional = false
-python-versions = "<3.13,>=3.12"
+python-versions = ">=3.12,<3.13"
 groups = ["main"]
-files = [
-    {file = "seapopym-0.0.2.5.2-py3-none-any.whl", hash = "sha256:ef350c64507e2eeac1693a386920017e12c939af47fbefd681da7af7f9de6c4c"},
-    {file = "seapopym-0.0.2.5.2.tar.gz", hash = "sha256:6a86a007eec4c560989468dd0f1aca10067a8a7d6f3eada565a78e19345ac1ed"},
-]
+files = []
+develop = true
 
 [package.dependencies]
-attrs = ">=25.3.0,<26.0.0"
-cf-xarray = ">=0.10.9,<0.11.0"
-dask = ">=2025.9.0,<2026.0.0"
-distributed = ">=2025.9.0,<2026.0.0"
-numba = ">=0.61.2,<0.62.0"
-pint = ">=0.25,<0.26"
-pint-xarray = ">=0.6.0,<0.7.0"
-pyarrow = ">=21.0.0,<22.0.0"
-xarray = ">=2025.9.0,<2026.0.0"
+attrs = "^25.3.0"
+cf-xarray = "^0.10.9"
+dask = "^2025.9.0"
+distributed = "^2025.9.0"
+numba = "^0.61.2"
+pint = "^0.25"
+pint-xarray = "^0.6.0"
+pyarrow = "^21.0.0"
+xarray = "^2025.9.0"
+
+[package.source]
+type = "directory"
+url = "../Seapopym"
 
 [[package]]
 name = "send2trash"
@@ -4471,4 +4473,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = "<3.13,>=3.12"
-content-hash = "45941ab2d3465308fe906c99bc3530d9b550a60d3cc8531e00b84eb51c693236"
+content-hash = "38f53ff2f38ca18f2685cf81cf1984d9c1f543bd502d23fa214d359345cfbf76"
