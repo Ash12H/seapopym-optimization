@@ -11,8 +11,6 @@ if TYPE_CHECKING:
 
     from numpy.typing import ArrayLike
 
-    from seapopym_optimization.observations.observation import Observation
-
 
 @runtime_checkable
 class MetricProtocol[U, V](Protocol):
@@ -27,11 +25,11 @@ class MetricProtocol[U, V](Protocol):
         ...
 
 
-def rmse_comparator(prediction: ArrayLike, observation: Observation) -> Number:
+def rmse_comparator(prediction: ArrayLike, observation: ArrayLike) -> Number:
     """Calculate RMSE between prediction and observation."""
-    return np.sqrt(np.mean((prediction - observation.observation) ** 2))
+    return np.sqrt(np.mean((prediction - observation) ** 2))
 
 
-def nrmse_std_comparator(prediction: ArrayLike, observation: Observation) -> Number:
+def nrmse_std_comparator(prediction: ArrayLike, observation: ArrayLike) -> Number:
     """Calculate Normalized (std) RMSE between prediction and observation."""
-    return rmse_comparator(prediction, observation) / observation.observation.std()
+    return rmse_comparator(prediction, observation) / observation.std()

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 import xarray as xr
@@ -15,11 +16,14 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
     from numbers import Number
 
+    import pandas as pd
     from seapopym.standard import SeapopymState
 
     from seapopym_optimization.cost_function.metric import MetricProtocol
     from seapopym_optimization.observations.protocol import ObservationProtocol
     from seapopym_optimization.observations.time_serie import TimeSeriesObservation
+
+logger = logging.getLogger(__name__)
 
 
 # NOTE(Jules): This function will be used in the future to aggregate biomass by layer so we can compute score for
@@ -64,12 +68,45 @@ class AbstractScoreProcessor(ABC):
 class TimeSeriesScoreProcessor(AbstractScoreProcessor):
     """Processes observations in time series format by applying preprocessing and comparison metrics."""
 
-    def _pre_process_prediction(
-        self, prediction: xr.DataArray, observation: TimeSeriesObservation, fg_positions: Sequence[int]
+    def __init__(
+        self,
+        comparator: MetricProtocol[xr.DataArray, ObservationProtocol],
+        preprocess: None | Literal["resample", "interpolate"] = None,
+    ) -> None:
+        """Initialize with a comparator metric."""
+        super().__init__(comparator)
+        self.preprocess = preprocess
+
+    def _extract_observation_type(
+        self: TimeSeriesScoreProcessor, state: SeapopymState, observation_type: DayCycle
+    ) -> Sequence[int]:
+        """Extract functional group positions based on observation type."""
+        if observation_type is DayCycle.DAY:
+            return state[ConfigurationLabels.day_layer]
+        if observation_type is DayCycle.NIGHT:
+            return state[ConfigurationLabels.night_layer]
+        msg = f"Unknown observation type: {observation_type}"
+        raise ValueError(msg)
+
+    def _format_prediction(
+        self: TimeSeriesScoreProcessor,
+        prediction: xr.DataArray,
+        observation: TimeSeriesObservation,
+        fg_positions: Sequence[int],
     ) -> xr.DataArray:
-        """Pre-process prediction to match observation dimensions."""
-        prediction = prediction.pint.quantify().pint.to(observation.observation.units).pint.dequantify()
-        selected = prediction.sel(
+        """Ensure prediction has the correct dimensions."""
+        if self.preprocess in ["resample", "interpolate"]:
+            prediction = prediction.resample({CoordinatesLabels.time: observation.observation_interval}).mean()
+            msg = "Prediction resampled to match observation interval."
+            logger.info(msg)
+
+        if self.preprocess == "interpolate":
+            """Interpolate prediction outputs to match observation interval"""
+            prediction = prediction.interpolate_na(dim=CoordinatesLabels.time)
+            msg = "Interpolate prediction interval to match observation interval."
+            logger.info(msg)
+
+        return prediction.sel(
             {
                 CoordinatesLabels.functional_group: fg_positions,
                 CoordinatesLabels.time: observation.observation[CoordinatesLabels.time],
@@ -77,19 +114,30 @@ class TimeSeriesScoreProcessor(AbstractScoreProcessor):
                 CoordinatesLabels.Y: observation.observation[CoordinatesLabels.Y],
             },
         )
+
+    def _pre_process_prediction(self, state: SeapopymState, observation: TimeSeriesObservation) -> xr.DataArray:
+        """Pre-process prediction to match observation dimensions."""
+        fg_positions = self._extract_observation_type(state, observation.observation_type)
+        prediction = state[ForcingLabels.biomass]
+        prediction = prediction.pint.quantify().pint.to(observation.observation.units).pint.dequantify()
+        prediction = self._format_prediction(prediction, observation, fg_positions)
+
         # Sum over functional_group dimension, squeeze size-1 dimensions
-        summed = selected.sum(CoordinatesLabels.functional_group)
+        summed = prediction.sum(CoordinatesLabels.functional_group)
         return summed.squeeze()
 
     def process(self, state: SeapopymState, observation: TimeSeriesObservation) -> Number:
         """Compare prediction with observation by applying the comparator. Can pre-process data if needed."""
-        if observation.observation_type is DayCycle.DAY:
-            positions = state[ConfigurationLabels.day_layer]
-        elif observation.observation_type is DayCycle.NIGHT:
-            positions = state[ConfigurationLabels.night_layer]
-        else:
-            msg = f"Unknown observation type: {observation.observation_type}"
-            raise ValueError(msg)
+        prediction = self._pre_process_prediction(state, observation)
+        return self.comparator(prediction, observation.observation)
 
-        prediction = self._pre_process_prediction(state[ForcingLabels.biomass], observation, positions)
-        return self.comparator(prediction, observation)
+
+class LogTimeSeriesScoreProcessor(TimeSeriesScoreProcessor):
+    """Processes observations in time series format by applying log preprocessing and comparison metrics."""
+
+    """Log(1 + biomass) applied to avoid negative values. Observation values must be in mgC/m2."""
+
+    def process(self, state: SeapopymState, observation: TimeSeriesObservation) -> Number:
+        """Compare log prediction with log observation by applying the comparator. Can pre-process data if needed."""
+        prediction = self._pre_process_prediction(state, observation)
+        return self.comparator(xr.ufuncs.log10(1 + prediction), xr.ufuncs.log10(1 + observation.observation))
