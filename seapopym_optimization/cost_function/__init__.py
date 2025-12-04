@@ -2,7 +2,7 @@
 
 from .cost_function import CostFunction
 from .metric import MetricProtocol, nrmse_std_comparator, rmse_comparator
-from .processor import AbstractScoreProcessor, SpatialScoreProcessor, TimeSeriesScoreProcessor
+from .processor import AbstractScoreProcessor, SpatialScoreProcessor, TimeSeriesScoreProcessor, LogTimeSeriesScoreProcessor
 from .protocol import CostFunctionProtocol
 
 __all__ = [
@@ -12,6 +12,7 @@ __all__ = [
     "MetricProtocol",
     "SpatialScoreProcessor",
     "TimeSeriesScoreProcessor",
+    "LogTimeSeriesScoreProcessor",
     "nrmse_std_comparator",
     "rmse_comparator",
 ]
