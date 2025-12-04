@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 
     from seapopym_optimization.cost_function.metric import MetricProtocol
     from seapopym_optimization.observations.protocol import ObservationProtocol
+    from seapopym_optimization.observations.spatial import SpatialObservation
     from seapopym_optimization.observations.time_serie import TimeSeriesObservation
 
 logger = logging.getLogger(__name__)
@@ -141,3 +142,43 @@ class LogTimeSeriesScoreProcessor(TimeSeriesScoreProcessor):
         """Compare log prediction with log observation by applying the comparator. Can pre-process data if needed."""
         prediction = self._pre_process_prediction(state, observation)
         return self.comparator(xr.ufuncs.log10(1 + prediction), xr.ufuncs.log10(1 + observation.observation))
+
+
+class SpatialScoreProcessor(AbstractScoreProcessor):
+    """Processes observations in spatial format by applying comparison metrics."""
+
+    def _extract_observation_type(
+        self: SpatialScoreProcessor, state: SeapopymState, observation_type: DayCycle
+    ) -> Sequence[int]:
+        """Extract functional group positions based on observation type."""
+        if observation_type is DayCycle.DAY:
+            return state[ConfigurationLabels.day_layer]
+        if observation_type is DayCycle.NIGHT:
+            return state[ConfigurationLabels.night_layer]
+        msg = f"Unknown observation type: {observation_type}"
+        raise ValueError(msg)
+
+    def _pre_process_prediction(self, state: SeapopymState, observation: SpatialObservation) -> xr.DataArray:
+        """Pre-process prediction to match observation dimensions."""
+        fg_positions = self._extract_observation_type(state, observation.observation_type)
+        prediction = state[ForcingLabels.biomass]
+        prediction = prediction.pint.quantify().pint.to(observation.observation.units).pint.dequantify()
+
+        # Select the points corresponding to the observation
+        # We assume observation has coordinates time, X, Y
+        sel_dict = {
+            CoordinatesLabels.functional_group: fg_positions,
+            CoordinatesLabels.time: observation.observation[CoordinatesLabels.time],
+            CoordinatesLabels.X: observation.observation[CoordinatesLabels.X],
+            CoordinatesLabels.Y: observation.observation[CoordinatesLabels.Y],
+        }
+        prediction = prediction.sel(sel_dict, method="nearest")
+
+        # Sum over functional_group dimension, squeeze size-1 dimensions
+        summed = prediction.sum(CoordinatesLabels.functional_group)
+        return summed.squeeze()
+
+    def process(self, state: SeapopymState, observation: SpatialObservation) -> Number:
+        """Compare prediction with observation by applying the comparator."""
+        prediction = self._pre_process_prediction(state, observation)
+        return self.comparator(prediction, observation.observation)
