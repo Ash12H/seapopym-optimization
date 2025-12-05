@@ -99,7 +99,7 @@ class TimeSeriesScoreProcessor(AbstractScoreProcessor):
         if self.preprocess in ["resample", "interpolate"]:
             prediction = prediction.resample({CoordinatesLabels.time: observation.observation_interval}).mean()
             msg = "Prediction resampled to match observation interval."
-            logger.info(msg)
+            logger.debug(msg)
 
         if self.preprocess == "interpolate":
             """Interpolate prediction outputs to match observation interval"""

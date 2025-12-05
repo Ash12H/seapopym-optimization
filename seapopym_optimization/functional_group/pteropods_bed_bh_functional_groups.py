@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from seapopym_optimization.functional_group import PteropodBedFunctionalGroup, Parameter
+from seapopym_optimization.functional_group import PteropodBedFunctionalGroup
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from seapopym_optimization.functional_group.base_functional_group import Parameter
 
 
 @dataclass
